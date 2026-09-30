@@ -18,6 +18,8 @@ type WindowProps = {
   /** Classes for the window chrome, e.g. a dark Terminal body. */
   chromeClassName?: string;
   children: React.ReactNode;
+  /** Above the fold: shown from the first paint instead of fading in on scroll. */
+  priority?: boolean;
 };
 
 type State = "open" | "minimised" | "closed";
@@ -67,10 +69,13 @@ function TrafficLights({ title, fullscreen, onClose, onMinimise, onZoom }: Light
 // A macOS-style window. Every page section lives in one. The traffic lights
 // work, the title bar drags (it springs back), and dock or Spotlight
 // reopens a window you closed.
-export function Window({ id, title, toolbar, className = "", chromeClassName = "", children }: WindowProps) {
+export function Window({ id, title, toolbar, className = "", chromeClassName = "", children, priority = false }: WindowProps) {
   const ref = useRef<HTMLDivElement>(null);
   const sectionRef = useRef<HTMLElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.15 });
+  // Fades in once its top edge is a little way up the screen. A share of the
+  // window (`amount`) can't be used: on phones some windows are several
+  // screens tall, so that share would never fit on screen at once.
+  const inView = useInView(ref, { once: true, margin: "0px 0px -10% 0px" });
   const reduce = useReducedMotion();
   const drag = useDragControls();
   const [state, setState] = useState<State>("open");
@@ -121,7 +126,7 @@ export function Window({ id, title, toolbar, className = "", chromeClassName = "
     setState("closed");
   }
 
-  const shown = inView || reduce;
+  const shown = inView || reduce || priority;
 
   return (
     <section
@@ -178,7 +183,7 @@ export function Window({ id, title, toolbar, className = "", chromeClassName = "
         dragElastic={0.18}
         dragTransition={{ bounceStiffness: 260, bounceDamping: 18 }}
         whileDrag={{ scale: 1.01, cursor: "grabbing" }}
-        initial={reduce ? false : { opacity: 0, y: 32 }}
+        initial={reduce || priority ? false : { opacity: 0, y: 32 }}
         animate={
           state === "closed"
             ? { opacity: 0, scale: 0.9, y: 20, transitionEnd: { display: "none" } }

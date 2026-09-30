@@ -16,7 +16,7 @@ export function Experience({ className }: { className?: string }) {
   );
 
   return (
-    <Window id="experience" title="Praveen_Singh_Resume.pdf" toolbar={download} className={className}>
+    <Window id="experience" title="Praveen_Singh_Senior_React_Native_Developer.pdf" toolbar={download} className={className}>
       <div className="bg-surface-2/60 p-3 md:p-8">
         <div className="mx-auto max-w-3xl rounded-2xl bg-surface p-6 shadow-[0_1px_3px_rgb(0_0_0/0.08),0_12px_32px_-12px_rgb(0_0_0/0.18)] md:p-10">
           <div className="flex flex-wrap items-end justify-between gap-4 border-b border-hairline pb-6">

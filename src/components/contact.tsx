@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { PaperPlaneTilt } from "@phosphor-icons/react";
 import { site } from "@/content";
+import { Avatar } from "./avatar";
 import { CopyEmail } from "./copy-email";
 import { Window } from "./window";
 
@@ -41,7 +42,8 @@ export function Contact({ className }: { className?: string }) {
         <div className="mt-6 text-[15px]">
           <div className="flex items-center gap-3 border-y border-hairline px-6 py-3 md:px-10">
             <span className="text-muted">To:</span>
-            <span className="rounded-full bg-accent-soft px-2.5 py-0.5 font-medium text-accent">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-soft py-0.5 pl-0.5 pr-2.5 font-medium text-accent">
+              <Avatar size={22} />
               {site.name}
             </span>
             <span className="hidden truncate font-mono text-sm text-muted sm:inline">{site.email}</span>

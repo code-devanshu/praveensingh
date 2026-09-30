@@ -31,6 +31,10 @@ type App = {
   label: string;
   Icon: Icon;
   tile: string;
+  /** Light tile: the glyph gets a softer shadow. */
+  light?: boolean;
+  /** Drawn in place of the glyph (see TileArt). */
+  art?: "terminal" | "paper";
   section?: string;
   external?: boolean;
   /** Only shown from the sm breakpoint up, so the dock fits on phones. */
@@ -38,12 +42,12 @@ type App = {
 };
 
 const apps: App[] = [
-  { href: "#top", section: "top", label: "Home", Icon: House, tile: "from-[#f2f2f7] to-[#c7c7cc] text-[#1d1d1f]", wideOnly: true },
+  { href: "#top", section: "top", label: "Home", Icon: House, tile: "from-[#f2f2f7] to-[#c7c7cc] text-[#1d1d1f]", light: true, wideOnly: true },
   { href: "#work", section: "work", label: "Work", Icon: AppWindow, tile: "from-[#8e8cff] to-[#4b47e6] text-white" },
-  { href: "#experience", section: "experience", label: "Résumé", Icon: FilePdf, tile: "from-[#ff6961] to-[#d70015] text-white", wideOnly: true },
+  { href: "#experience", section: "experience", label: "Résumé", Icon: FilePdf, tile: "from-[#ff6961] to-[#d70015] text-white", art: "paper", wideOnly: true },
   { href: "#tools", section: "tools", label: "Tools", Icon: Wrench, tile: "from-[#98989d] to-[#48484a] text-white" },
-  { href: "#terminal", section: "terminal", label: "Terminal", Icon: TerminalWindow, tile: "from-[#3a3a3c] to-[#0d0d0f] text-[#5af78e]" },
-  { href: "#process", section: "process", label: "Process", Icon: ListChecks, tile: "from-white to-[#e5e5ea] text-[#ff9500]" },
+  { href: "#terminal", section: "terminal", label: "Terminal", Icon: TerminalWindow, tile: "from-[#48484c] to-[#141416] text-[#5af78e]", art: "terminal" },
+  { href: "#process", section: "process", label: "Process", Icon: ListChecks, tile: "from-white to-[#e5e5ea] text-[#ff9500]", light: true },
   { href: "#about", section: "about", label: "About", Icon: IdentificationBadge, tile: "from-[#c89b6d] to-[#8a5a33] text-white" },
   { href: "#recommendations", section: "recommendations", label: "Recommendations", Icon: ChatCircleText, tile: "from-[#6ee27a] to-[#28b33a] text-white", wideOnly: true },
   { href: "#contact", section: "contact", label: "Mail", Icon: EnvelopeSimple, tile: "from-[#5ac8fa] to-[#0a84ff] text-white" },
@@ -55,6 +59,36 @@ const links: App[] = [
 ];
 
 const BASE = 52;
+
+// Small illustrations for tiles where a glyph alone reads flat. Sizes are
+// percentages and cqw (the tile face is a size container), so they scale
+// with dock magnification.
+function TileArt({ art }: { art: NonNullable<App["art"]> }) {
+  if (art === "terminal") {
+    return (
+      <span className="absolute inset-[15%] rounded-[16%] bg-[#0a0a0c] p-[11%] shadow-[inset_0_1px_3px_rgb(0_0_0/0.8)] ring-1 ring-white/10">
+        <span className="block font-mono text-[30cqw] font-bold leading-none text-[#5af78e] [text-shadow:0_0_4cqw_rgb(90_247_142/0.7)]">
+          &gt;_
+        </span>
+      </span>
+    );
+  }
+  // A sheet with its top-right corner folded over. The cut is 14.5% of the
+  // tile both ways, so it stays at 45° on a sheet that isn't square.
+  return (
+    <>
+      <span className="absolute left-[24%] top-[15%] flex h-[70%] w-[52%] flex-col gap-[7%] bg-white px-[11%] pt-[26%] shadow-[0_2px_4px_rgb(0_0_0/0.3)] [clip-path:polygon(0_0,72%_0,100%_20.7%,100%_100%,0_100%)]">
+        <span className="h-[5%] w-full rounded-full bg-black/15" />
+        <span className="h-[5%] w-[80%] rounded-full bg-black/15" />
+        <span className="h-[5%] w-full rounded-full bg-black/15" />
+        <span className="mt-auto pb-[14%] text-center text-[11cqw] font-extrabold leading-none tracking-tight text-[#d70015]">
+          PDF
+        </span>
+      </span>
+      <span className="absolute right-[24%] top-[15%] h-[14.5%] w-[14.5%] bg-[#d8d8dd] [clip-path:polygon(0_0,0_100%,100%_100%)]" />
+    </>
+  );
+}
 
 // Tracks which section is on screen so its dock icon gets the running dot.
 function useActiveSection() {
@@ -115,9 +149,27 @@ function DockIcon({ app, mouseX, running, className = "" }: DockIconProps) {
           }}
           style={{ width: size, height: size }}
           // Fixed smaller icons on phones; magnification only runs with a mouse.
-          className={`group relative flex items-center justify-center rounded-[22.5%] bg-linear-to-b shadow-[inset_0_1px_0_rgb(255_255_255/0.4),0_4px_10px_rgb(0_0_0/0.2)] max-md:h-11! max-md:w-11! ${app.tile}`}
+          className="group relative flex rounded-[22.5%] shadow-[0_1px_2px_rgb(0_0_0/0.2),0_6px_14px_-4px_rgb(0_0_0/0.35)] max-md:h-11! max-md:w-11!"
         >
-          <app.Icon weight="fill" aria-hidden className="h-[55%] w-[55%]" />
+          {/* The face is clipped to the squircle; the hover label below isn't. */}
+          <span
+            aria-hidden
+            className={`@container absolute inset-0 flex items-center justify-center overflow-hidden rounded-[inherit] bg-linear-to-b shadow-[inset_0_1px_0_rgb(255_255_255/0.55),inset_0_-1px_0_rgb(0_0_0/0.18),inset_0_0_0_0.5px_rgb(0_0_0/0.15)] ${app.tile}`}
+          >
+            {app.art ? (
+              <TileArt art={app.art} />
+            ) : (
+              <app.Icon
+                weight="fill"
+                className={`relative h-[55%] w-[55%] ${
+                  app.light ? "drop-shadow-[0_1px_1px_rgb(0_0_0/0.12)]" : "drop-shadow-[0_1.5px_1.5px_rgb(0_0_0/0.3)]"
+                }`}
+              />
+            )}
+            {/* Glass: a bright arc across the top, a little shade at the bottom. */}
+            <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(130%_75%_at_50%_-18%,rgb(255_255_255/0.42),rgb(255_255_255/0)_62%)]" />
+            <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgb(0_0_0/0)_60%,rgb(0_0_0/0.1))]" />
+          </span>
           <span
             aria-hidden
             className="pointer-events-none absolute bottom-full mb-3 whitespace-nowrap rounded-md bg-surface/90 px-2.5 py-1 text-xs font-medium text-text opacity-0 shadow-lg backdrop-blur transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"

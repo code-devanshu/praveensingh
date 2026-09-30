@@ -49,7 +49,7 @@ function run(input: string): Line[] | "clear" {
       ];
     case "ls":
     case "projects":
-      return projects.map((p) => ({ kind: "out", text: `  ${slug(p.name).padEnd(22)} ${p.domain}, ${p.year}` }));
+      return projects.map((p) => ({ kind: "out", text: `  ${slug(p.name).padEnd(22)} ${p.domain}, ${p.year}${p.retired ? " (retired)" : ""}` }));
     case "open":
     case "cat": {
       const project = projects.find((p) => slug(p.name) === slug(arg) || slug(p.company) === slug(arg));
@@ -57,8 +57,15 @@ function run(input: string): Line[] | "clear" {
       return [
         { kind: "ok", text: `${project.name} at ${project.company} (${project.platforms}, ${project.year})` },
         { kind: "out", text: project.summary },
+        ...(project.capabilities ?? []).map((c) => ({ kind: "out" as const, text: `  ${c.title.padEnd(9)} ${c.body}` })),
+        ...((project.retired ?? project.note) ? [{ kind: "out" as const, text: (project.retired ?? project.note) as string }] : []),
         ...(project.metrics ?? []).map((m) => ({ kind: "ok" as const, text: `  ${m.label}: ${m.before} → ${m.after} (${m.change})` })),
         { kind: "out", text: `Built with ${project.stack.join(", ")}` },
+        ...(project.apps ?? []).flatMap((app) => [
+          { kind: "ok" as const, text: `${app.name}${app.rating ? ` (★ ${app.rating.value}, ${app.rating.count} ratings)` : ""}` },
+          ...(app.ios ? [{ kind: "out" as const, text: `  App Store    ${app.ios}` }] : []),
+          ...(app.android ? [{ kind: "out" as const, text: `  Google Play  ${app.android}` }] : []),
+        ]),
       ];
     }
     case "experience":
@@ -66,7 +73,7 @@ function run(input: string): Line[] | "clear" {
       return experience.map((j) => ({ kind: "out", text: `  ${`${j.start} to ${j.end}`.padEnd(22)} ${j.title}, ${j.company}` }));
     case "resume": {
       setTimeout(() => window.open(site.resume, "_blank", "noopener"), 400);
-      return [{ kind: "ok", text: "Opening Praveen_Singh_Resume.pdf…" }];
+      return [{ kind: "ok", text: "Opening Praveen_Singh_Senior_React_Native_Developer.pdf…" }];
     }
     case "stack":
       return [{ kind: "out", text: stack.map((s) => s.label).join(" · ") }];

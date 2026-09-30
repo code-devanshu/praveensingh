@@ -1,4 +1,5 @@
 import { about, site } from "@/content";
+import { Avatar } from "./avatar";
 import { BuildNumber } from "./build-number";
 import { Window } from "./window";
 
@@ -7,13 +8,11 @@ export function About({ className }: { className?: string }) {
   return (
     <Window id="about" title="About This Developer" className={className}>
       <div className="flex flex-col items-center gap-8 px-6 py-10 text-center md:flex-row md:items-center md:gap-12 md:px-12 md:text-left">
-        {/* Contacts-style monogram until there is a real photo. */}
-        <span
-          aria-hidden
-          className="flex h-36 w-36 shrink-0 items-center justify-center rounded-full bg-linear-to-b from-[#5ac8fa] to-[#0a5fd6] text-5xl font-semibold tracking-tight text-white shadow-lg md:h-44 md:w-44 md:text-6xl"
-        >
-          {about.initials}
-        </span>
+        <Avatar
+          size={176}
+          alt={site.name}
+          className="h-36! w-36! shadow-lg ring-4 ring-white/70 md:h-44! md:w-44! dark:ring-white/10"
+        />
         <div className="w-full">
           <h2 className="text-3xl font-semibold tracking-tighter md:text-4xl">{site.name}</h2>
           <p className="mt-1 text-muted">{site.role}</p>

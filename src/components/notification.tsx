@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ChatCircleDots, X } from "@phosphor-icons/react";
 import { availability, site } from "@/content";
 import { bootDelay, openWindow } from "@/lib/desktop";
+import { Avatar } from "./avatar";
 
 // One macOS-style banner per visit, a few seconds after the desktop loads.
 export function Notification() {
@@ -53,8 +54,12 @@ export function Notification() {
               }}
               className="flex w-full items-start gap-3 p-3.5 text-left"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[22.5%] bg-linear-to-b from-[#6ee27a] to-[#28b33a] text-white shadow-sm">
-                <ChatCircleDots size={24} weight="fill" aria-hidden />
+              {/* Sender's photo with the app badged in the corner, as macOS shows messages. */}
+              <span className="relative shrink-0">
+                <Avatar size={40} />
+                <span className="absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center rounded-[22.5%] bg-linear-to-b from-[#6ee27a] to-[#28b33a] text-white shadow-sm ring-2 ring-surface">
+                  <ChatCircleDots size={12} weight="fill" aria-hidden />
+                </span>
               </span>
               <span className="min-w-0 flex-1 text-[13px] leading-snug">
                 <span className="flex items-baseline justify-between gap-2">

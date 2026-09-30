@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
+  AppleLogo,
   AppWindow,
   ArrowClockwise,
   Atom,
@@ -16,12 +18,15 @@ import {
   EnvelopeSimple,
   FilePdf,
   GithubLogo,
+  GooglePlayLogo,
   House,
   IdentificationBadge,
   Image as ImageIcon,
   LinkedinLogo,
   ListChecks,
   MagnifyingGlass,
+  Notebook,
+  Question,
   TerminalWindow,
   Wrench,
   type Icon,
@@ -30,7 +35,11 @@ import { projects, site } from "@/content";
 import { openWindow, setWallpaper, wallpapers } from "@/lib/desktop";
 import { getDev, openDevMenu, reload, setDev } from "@/lib/dev";
 
-type Item = { group: string; label: string; hint?: string; keywords?: string; Icon: Icon; run: () => void };
+type Item = { group: string; label: string; hint?: string; keywords?: string; Icon: Icon } & (
+  | { run: () => void; href?: never }
+  /** A page on this site, opened with client-side navigation. */
+  | { href: string; run?: never }
+);
 
 const external = (url: string) => () => window.open(url, "_blank", "noopener");
 
@@ -43,15 +52,34 @@ const items: Item[] = [
   { group: "Windows", label: "Process", Icon: ListChecks, keywords: "reminders how i work", run: () => openWindow("process") },
   { group: "Windows", label: "About This Developer", Icon: IdentificationBadge, keywords: "about bio", run: () => openWindow("about") },
   { group: "Windows", label: "Recommendations", Icon: ChatCircleText, keywords: "testimonials references messages linkedin", run: () => openWindow("recommendations") },
+  { group: "Windows", label: "Help", Icon: Question, keywords: "faq questions answers hire available", run: () => openWindow("faq") },
   { group: "Windows", label: "New Message", Icon: EnvelopeSimple, keywords: "contact mail email hire", run: () => openWindow("contact") },
   ...projects.map((p) => ({
     group: "Apps",
     label: p.name,
-    hint: p.company,
+    hint: p.retired ? `${p.company} · retired` : p.company,
     keywords: `${p.domain} ${p.summary} ${p.stack.join(" ")}`,
     Icon: DeviceMobile,
     run: () => openWindow("work"),
   })),
+  ...projects.map((p) => ({
+    group: "Case studies",
+    label: `${p.name} case study`,
+    hint: p.company,
+    keywords: `${p.domain} ${p.stack.join(" ")} read more details`,
+    Icon: Notebook,
+    href: `/work/${p.slug}`,
+  })),
+  ...projects.flatMap((p) =>
+    (p.apps ?? []).flatMap((app) => [
+      ...(app.ios
+        ? [{ group: "App Store and Google Play", label: `${app.name} on the App Store`, keywords: `ios iphone store ${p.company}`, Icon: AppleLogo, run: external(app.ios) }]
+        : []),
+      ...(app.android
+        ? [{ group: "App Store and Google Play", label: `${app.name} on Google Play`, keywords: `android play store ${p.company}`, Icon: GooglePlayLogo, run: external(app.android) }]
+        : []),
+    ]),
+  ),
   { group: "Actions", label: "Download résumé", hint: "PDF", keywords: "resume cv", Icon: DownloadSimple, run: () => window.open(site.resume, "_blank", "noopener") },
   { group: "Actions", label: "Add to Contacts", hint: "vCard", keywords: "vcard save phone number", Icon: UserPlus, run: () => {
       window.location.href = site.vcard;
@@ -81,6 +109,7 @@ export function Spotlight() {
   const reduce = useReducedMotion();
   const returnFocus = useRef<HTMLElement | null>(null);
   const list = useRef<HTMLUListElement>(null);
+  const router = useRouter();
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -123,7 +152,8 @@ export function Spotlight() {
   function choose(item: Item | undefined) {
     if (!item) return;
     setOpen(false);
-    item.run();
+    if (item.run) item.run();
+    else router.push(item.href);
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
