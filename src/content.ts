@@ -9,8 +9,9 @@
 export const site = {
   name: "Praveen Singh",
   // The live domain. Canonical URLs, the sitemap and structured data are
-  // built from it (see src/lib/seo.ts).
-  url: "https://praveensingh.co.in",
+  // built from it (see src/lib/seo.ts). Must match the primary domain in
+  // Vercel, which redirects the bare domain to www.
+  url: "https://www.praveensingh.co.in",
   role: "Senior React Native Engineer",
   email: "praveen.codeit@gmail.com",
   github: "https://github.com/psingh2907",
