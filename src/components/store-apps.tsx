@@ -10,10 +10,19 @@ import type { StoreApp } from "@/content";
 // Store images are already sized WebP (see public/work), so they're served
 // as-is with `unoptimized` rather than through the image optimizer.
 
-// Android visitors get the Play Store button first; everyone else the App Store.
+// On a phone, the visitor's own store leads as a filled button and the other
+// stays beside it, quieter. Desktop (and the server render) shows both equally.
 const noop = () => () => {};
-function useAndroid() {
-  return useSyncExternalStore(noop, () => /android/i.test(navigator.userAgent), () => false);
+type Platform = "ios" | "android" | null;
+function detectPlatform(): Platform {
+  const ua = navigator.userAgent;
+  if (/android/i.test(ua)) return "android";
+  // iPadOS reports itself as a Mac; touch support gives it away.
+  if (/iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && navigator.maxTouchPoints > 1)) return "ios";
+  return null;
+}
+function usePlatform() {
+  return useSyncExternalStore<Platform>(noop, detectPlatform, () => null);
 }
 
 // The listing's screenshots in a row, like a store page. Each opens full size.
@@ -55,9 +64,11 @@ type ListProps = {
 // One row per store listing: icon, rating and store buttons. With more than
 // one app, a row also switches which screenshots the card shows.
 export function StoreList({ apps, active, onSelect }: ListProps) {
-  const android = useAndroid();
+  const platform = usePlatform();
   const pill =
-    "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-hairline px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent-soft hover:text-accent";
+    "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-[color,background-color,transform] active:scale-[0.98]";
+  const quiet = `${pill} border-hairline hover:bg-accent-soft hover:text-accent`;
+  const primary = `${pill} border-transparent bg-accent-fill text-white hover:brightness-110`;
 
   return (
     <div className="mt-5">
@@ -95,19 +106,19 @@ export function StoreList({ apps, active, onSelect }: ListProps) {
 
           const stores = [
             app.ios && (
-              <a key="ios" href={app.ios} target="_blank" rel="noreferrer" className={pill}>
+              <a key="ios" href={app.ios} target="_blank" rel="noreferrer" className={platform === "ios" ? primary : quiet}>
                 <AppleLogo size={14} weight="fill" aria-hidden />
                 App Store
               </a>
             ),
             app.android && (
-              <a key="android" href={app.android} target="_blank" rel="noreferrer" className={pill}>
+              <a key="android" href={app.android} target="_blank" rel="noreferrer" className={platform === "android" ? primary : quiet}>
                 <GooglePlayLogo size={14} weight="fill" aria-hidden />
                 Google Play
               </a>
             ),
           ].filter(Boolean);
-          if (android) stores.reverse();
+          if (platform === "android") stores.reverse();
 
           return (
             <li

@@ -151,6 +151,7 @@ export const projects: Project[] = [
         icon: "/work/upgrad-living/icon.webp",
         category: "Student housing",
         ios: "https://apps.apple.com/in/app/upgrad-living/id6448984912",
+        android: "https://play.google.com/store/apps/details?id=com.upgrad.living",
         screenshots: shots("upgrad-living", 900, 1600, [
           "Quick log-in for residents",
           "Today's meal menu",
