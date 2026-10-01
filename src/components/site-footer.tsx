@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { GithubLogo, LinkedinLogo } from "@phosphor-icons/react/ssr";
 import { site } from "@/content";
-import { publishedNotes } from "@/notes";
 
 // Shared by the home page and the sub-pages. rel="me" tells search engines
 // the GitHub and LinkedIn profiles belong to the person this site is about.
@@ -20,11 +19,9 @@ export function SiteFooter() {
       <Link href="/resume" className="hover:text-accent">
         Résumé
       </Link>
-      {publishedNotes().length > 0 && (
-        <Link href="/notes" className="hover:text-accent">
-          Notes
-        </Link>
-      )}
+      <Link href="/blog" className="hover:text-accent">
+        Blog
+      </Link>
     </footer>
   );
 }

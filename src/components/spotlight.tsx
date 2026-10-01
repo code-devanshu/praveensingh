@@ -53,6 +53,7 @@ const items: Item[] = [
   { group: "Windows", label: "About This Developer", Icon: IdentificationBadge, keywords: "about bio", run: () => openWindow("about") },
   { group: "Windows", label: "Recommendations", Icon: ChatCircleText, keywords: "testimonials references messages linkedin", run: () => openWindow("recommendations") },
   { group: "Windows", label: "Help", Icon: Question, keywords: "faq questions answers hire available", run: () => openWindow("faq") },
+  { group: "Windows", label: "Notes", Icon: Notebook, keywords: "blog posts articles writing", run: () => openWindow("blog") },
   { group: "Windows", label: "New Message", Icon: EnvelopeSimple, keywords: "contact mail email hire", run: () => openWindow("contact") },
   ...projects.map((p) => ({
     group: "Apps",
@@ -102,7 +103,12 @@ const items: Item[] = [
 
 // ⌘K / Ctrl+K (or the magnifier in the menu bar) opens a Spotlight-style
 // launcher for jumping between windows, projects and actions.
-export function Spotlight() {
+type SpotlightProps = {
+  /** Blog posts, newest first, so they can be searched by title and tag. */
+  posts?: { slug: string; title: string; tags: string[] }[];
+};
+
+export function Spotlight({ posts = [] }: SpotlightProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
@@ -112,10 +118,20 @@ export function Spotlight() {
   const router = useRouter();
 
   const results = useMemo(() => {
+    const all: Item[] = [
+      ...items,
+      ...posts.map((p) => ({
+        group: "Blog",
+        label: p.title,
+        keywords: `blog post article ${p.tags.join(" ")}`,
+        Icon: Notebook,
+        href: `/blog/${p.slug}`,
+      })),
+    ];
     const q = query.trim().toLowerCase();
-    if (!q) return items.filter((i) => i.group === "Windows");
-    return items.filter((i) => `${i.label} ${i.hint ?? ""} ${i.keywords ?? ""}`.toLowerCase().includes(q));
-  }, [query]);
+    if (!q) return all.filter((i) => i.group === "Windows");
+    return all.filter((i) => `${i.label} ${i.hint ?? ""} ${i.keywords ?? ""}`.toLowerCase().includes(q));
+  }, [query, posts]);
 
   function show() {
     returnFocus.current = document.activeElement as HTMLElement;

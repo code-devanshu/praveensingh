@@ -20,6 +20,7 @@ import {
   IdentificationBadge,
   LinkedinLogo,
   ListChecks,
+  NotePencil,
   TerminalWindow,
   Wrench,
   type Icon,
@@ -48,6 +49,7 @@ const apps: App[] = [
   { href: "#tools", section: "tools", label: "Tools", Icon: Wrench, tile: "from-[#98989d] to-[#48484a] text-white" },
   { href: "#terminal", section: "terminal", label: "Terminal", Icon: TerminalWindow, tile: "from-[#48484c] to-[#141416] text-[#5af78e]", art: "terminal" },
   { href: "#process", section: "process", label: "Process", Icon: ListChecks, tile: "from-white to-[#e5e5ea] text-[#ff9500]", light: true },
+  { href: "#blog", section: "blog", label: "Notes", Icon: NotePencil, tile: "from-[#fff3b0] to-[#ffd60a] text-[#1d1d1f]", light: true, wideOnly: true },
   { href: "#about", section: "about", label: "About", Icon: IdentificationBadge, tile: "from-[#c89b6d] to-[#8a5a33] text-white" },
   { href: "#recommendations", section: "recommendations", label: "Recommendations", Icon: ChatCircleText, tile: "from-[#6ee27a] to-[#28b33a] text-white", wideOnly: true },
   { href: "#contact", section: "contact", label: "Mail", Icon: EnvelopeSimple, tile: "from-[#5ac8fa] to-[#0a84ff] text-white" },
@@ -186,7 +188,8 @@ function DockIcon({ app, mouseX, running, className = "" }: DockIconProps) {
   );
 }
 
-export function Dock() {
+/** `blog`: whether the Notes window (latest posts) is on the page. */
+export function Dock({ blog = false }: { blog?: boolean }) {
   const reduce = useReducedMotion();
   const mouseX = useMotionValue(Infinity);
   const active = useActiveSection();
@@ -200,7 +203,7 @@ export function Dock() {
         onPointerLeave={() => mouseX.set(Infinity)}
         className="glass flex h-[62px] items-end gap-2 rounded-[22px] px-2 pb-2.5 md:h-[70px] md:gap-2.5"
       >
-        {apps.map((app) => (
+        {apps.filter((app) => blog || app.section !== "blog").map((app) => (
           <DockIcon
             key={app.label}
             app={app}

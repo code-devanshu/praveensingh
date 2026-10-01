@@ -1,0 +1,270 @@
+export const meta = {
+  title: "Upgrading to React Native 0.87: what broke, how I fixed it, and what Metro really gained",
+  description:
+    "A hands-on 0.86 → 0.87 upgrade of a demo app: 16 TypeScript errors, one runtime crash, two props that silently stopped working, and measured Metro numbers.",
+  published: "2026-10-01",
+  tags: ["React Native", "Upgrades", "Performance"],
+  platforms: ["iOS", "Android"],
+};
+
+<AtAGlance
+  problem="An app that type-checked cleanly on 0.86.3"
+  fix="Template diff, then 40 lines of code changes across 6 files"
+  result="16 → 0"
+  resultLabel="TypeScript errors after upgrading to 0.87.1"
+/>
+
+<ShortAnswer>
+  Upgrade now if you're on 0.86: the work is mostly mechanical and takes an afternoon. Do the type fixes properly
+  rather than leaning on the opt-out flag, because it only hides 10 of the 16 errors and is gone after 0.88. Check
+  `InteractionManager`, `StatusBar` and `Modal` usage by hand: one crashes at runtime and two fail silently.
+</ShortAnswer>
+
+React Native 0.87 shipped on 11 August 2026 with the Strict TypeScript API on by default, a faster Metro, experimental Swift Package Manager support and Android Gradle Plugin 9. Most write-ups summarise the release notes. I wanted real numbers, so I built a small store-audit app on 0.86.3, deliberately using the APIs 0.87 changes, upgraded it to 0.87.1 and recorded everything that broke.
+
+Everything is in [a public repo](https://github.com/psingh2907/rn-087-upgrade-lab), one commit per step, so you can reproduce it.
+
+<Note title="The setup">
+  A store-audit checklist app: FlashList with mixed row types, a header with a status bar, a photo modal, a notes
+  input and a theme setting. React Native 0.86.3 → 0.87.1, React 19.2.3, Node 24, Apple M1 with 8 GB of memory. I
+  covered JavaScript, TypeScript, Metro and an Android debug build. I didn't run the app on a device, and didn't build
+  iOS, which has no template changes in 0.87.
+</Note>
+
+## What changed in the template?
+
+I applied the official template diff from the [Upgrade Helper](https://react-native-community.github.io/upgrade-helper/?from=0.86.3&to=0.87.1). It's small, and nothing on iOS changes:
+
+| File | Change |
+| --- | --- |
+| `package.json` | `react-native` 0.87.1, CLI 20.2.0, **TypeScript 6** (`^6.0.3`) |
+| `tsconfig.json` | Drops `"types": ["jest"]` (the preset includes it) |
+| `android/build.gradle` | `compileSdk` and build tools **37**, Kotlin **2.2.0** |
+| `android/gradle.properties` | **`edgeToEdgeEnabled=true`**, plus two AGP 9 opt-outs |
+| Gradle wrapper | 9.3.1 → **9.4.1** |
+| `android/app/build.gradle` | `proguard-android-optimize.txt` for release builds |
+
+<Gotcha title="Edge-to-edge is now on by default">
+  The template flips `edgeToEdgeEnabled` to `true`. Your Android app now draws behind the status and navigation bars,
+  so screens that relied on the system bars taking up space need safe-area padding. Merge this line deliberately; don't
+  just accept the diff.
+</Gotcha>
+
+The two AGP 9 opt-outs keep the old Kotlin and DSL behaviour for now. They go away in AGP 10, so treat them as a reminder, not a fix:
+
+```properties title="android/gradle.properties"
+android.builtInKotlin=false
+android.newDsl=false
+```
+
+Then one install with the new versions, and a type check.
+
+## 16 TypeScript errors in an app that compiled yesterday
+
+On 0.86.3, `tsc --noEmit` was clean. On 0.87.1 it reported **16 errors in 6 files**. They fall into three groups.
+
+### Types that were renamed or removed
+
+`ViewProperties` and the other `*Properties` aliases are gone; use the `*Props` names. `NativeMethods` is replaced by `HostInstance`:
+
+```diff title="src/lib/measure.ts"
+- import type { NativeMethods } from 'react-native';
+- import type { ViewProps } from 'react-native/Libraries/Components/View/ViewPropTypes';
++ import type { HostInstance, ViewProps } from 'react-native';
+
+- export function measureInWindow(node: NativeMethods | null) {
++ export function measureInWindow(node: HostInstance | null) {
+```
+
+That deep import into `react-native/Libraries` is the change most codebases will hit: under the Strict API it's a hard error ("Cannot find module"). Losing `NativeMethods` cost 4 more errors on its own, because the `measureInWindow` callback's parameters lost their types.
+
+### Refs need the new instance types
+
+`useRef<View>(null)` and `useRef<TextInput>(null)` no longer type-check. Components are typed as functions now, so a ref holds an instance type instead:
+
+```diff title="src/screens/ChecklistScreen.tsx"
+- const notes = useRef<TextInput>(null);
+- const banner = useRef<View>(null);
++ const notes = useRef<TextInputInstance>(null);
++ const banner = useRef<ViewInstance>(null);
+```
+
+Both types come from `react-native` (`import { type TextInputInstance, type ViewInstance } from 'react-native'`).
+
+### `useColorScheme()` can return `null`
+
+It used to return `'unspecified'` when there was no preference. Now it returns `null`, and comparing against `'unspecified'` is a type error:
+
+```diff title="src/lib/theme.ts"
+- export function describeScheme(scheme: ColorSchemeName) {
+-   if (scheme === 'unspecified') return 'Following the system';
++ export function describeScheme(scheme: ColorSchemeName | null) {
++   if (scheme === null) return 'Following the system';
+```
+
+Setting the scheme changed too: `Appearance.setColorScheme('unspecified')` is deprecated in favour of `'auto'`. It still compiles, so a type check won't flag it.
+
+## What the opt-out flag actually hides
+
+0.87 keeps a temporary way back to the old types, through 0.88 only:
+
+```json title="tsconfig.json"
+{
+  "extends": "@react-native/typescript-config",
+  "compilerOptions": {
+    "customConditions": ["react-native", "react-native-legacy-deep-imports"]
+  }
+}
+```
+
+With it, my 16 errors dropped to **6**. The 6 that remain are APIs that were removed, not just retyped, and no flag brings them back. So the opt-out buys time for the type changes only. Since it's only available through 0.88, I'd fix everything now instead.
+
+## The ones that matter at runtime
+
+Metro doesn't type-check, so here's how the removed APIs behave if you ship without fixing the types.
+
+### `InteractionManager` is gone, and that's a crash
+
+`InteractionManager` isn't exported any more, so `InteractionManager.runAfterInteractions(...)` throws at runtime. The release notes point to `requestIdleCallback`:
+
+```diff title="src/screens/ChecklistScreen.tsx"
+  useEffect(() => {
+-   const task = InteractionManager.runAfterInteractions(() => setItems(checklist));
+-   return () => task.cancel();
++   const handle = requestIdleCallback(() => setItems(checklist));
++   return () => cancelIdleCallback(handle);
+  }, []);
+```
+
+<Gotcha title="requestIdleCallback has no types">
+  React Native implements `requestIdleCallback` at runtime, but as of 0.87.1 its global types don't declare it, so
+  the recommended replacement fails the type check ("Cannot find name"). A small declaration file fixes it.
+</Gotcha>
+
+```ts title="src/types/idle-callback.d.ts"
+type IdleDeadline = { readonly didTimeout: boolean; timeRemaining(): number };
+
+declare function requestIdleCallback(
+  callback: (deadline: IdleDeadline) => void,
+  options?: { timeout?: number },
+): number;
+declare function cancelIdleCallback(handle: number): void;
+```
+
+### Two props that silently stop working
+
+`StatusBar`'s `translucent` and `backgroundColor`, and `Modal`'s `animated`, are removed. TypeScript flags them, but nothing fails at runtime: React Native's 0.87 source no longer reads these props, so they're ignored. With edge-to-edge on by default, the status bar is already drawn over your content, so the fix is to delete them:
+
+```diff title="src/components/Header.tsx"
+- <StatusBar translucent backgroundColor="transparent" barStyle={barStyle} />
++ <StatusBar barStyle={barStyle} />
+```
+
+For `Modal`, `animationType` already controls the animation; drop `animated`. While you're there, `keyboardShouldPersistTaps={true}` on `ScrollView` must become `"always"`.
+
+### Deprecated, not removed: `ImageBackground`
+
+`ImageBackground` still works and still type-checks, but it's deprecated. The replacement is a `View` with an absolutely positioned `Image`:
+
+```tsx title="src/components/Header.tsx"
+<View style={[styles.banner, style]}>
+  <Image source={{ uri: bannerUrl }} style={StyleSheet.absoluteFill} />
+  <Text style={styles.title}>{title}</Text>
+</View>
+```
+
+Add `overflow: 'hidden'` to the container if it has rounded corners.
+
+<Gotcha title="Your dependencies may still deep-import">
+  `react-native-safe-area-context` still imports from `react-native/Libraries/...` internally. It bundles and runs
+  fine, and `skipLibCheck` hides it from your type check, so nothing breaks today. It's still worth checking that your
+  libraries have Strict-API-ready releases before 0.89.
+</Gotcha>
+
+To find deep imports in your own code before you start:
+
+```bash
+grep -rn "react-native/Libraries" src --include=*.ts --include=*.tsx
+```
+
+## Building on Android: AGP 9 and the opt-outs
+
+With the template diff applied, `./gradlew :app:assembleDebug` built on the first try: **8 minutes 57 seconds** from cold, including Gradle downloading Android SDK Build-Tools 37 and Platform 37 by itself (no manual SDK Manager step). Two warnings are worth acting on.
+
+**The template's own `MainActivity` is deprecated.** Even the official 0.87.1 template still passes the old `fabricEnabled` flag, which now does nothing because the New Architecture is always on:
+
+```diff title="android/app/src/main/java/.../MainActivity.kt"
+- import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
+  ...
+  override fun createReactActivityDelegate(): ReactActivityDelegate =
+-     DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled)
++     DefaultReactActivityDelegate(this, mainComponentName)
+```
+
+**AGP 9 already calls the opt-outs deprecated.** The two lines the template adds to `gradle.properties` print `The option setting 'android.builtInKotlin=false' is deprecated` (and the same for `newDsl`). So I tried building without them. It failed in one second:
+
+```text
+Failed to apply plugin 'org.jetbrains.kotlin.android'.
+> Cannot add extension with name 'kotlin', as there is an extension already registered with that name.
+```
+
+AGP 9 now includes Kotlin support itself, so the separate Kotlin plugin in `app/build.gradle` clashes with it. Removing that one line was enough:
+
+```diff title="android/app/build.gradle"
+  apply plugin: "com.android.application"
+- apply plugin: "org.jetbrains.kotlin.android"
+  apply plugin: "com.facebook.react"
+```
+
+With both opt-outs gone and that line removed, the app built, Kotlin and C++ included, and the deprecation warnings disappeared. `react-native-safe-area-context`, which applies its own Kotlin plugin, built fine either way.
+
+<Gotcha title="Keep the opt-outs unless you can test every library">
+  The release notes recommend keeping them, and that's the safe default: a library with its own Gradle setup could
+  still clash. But they will be removed in AGP 10, so try dropping them on a branch now. If your app builds, you've
+  done the AGP 10 migration early.
+</Gotcha>
+
+## Metro: what "2× faster" looks like on a real app
+
+The headline claim is that source maps are generated about 2× faster and Metro uses about half the memory, which mostly shows up when React Native DevTools loads. So I measured what DevTools waits for: the dev server's source map, requested after the bundle is built. I ran it on the demo app, and on a synthetic 2,000-screen app (about 92,000 lines of TypeScript) to see how it scales.
+
+| Dev server, median of warm runs | 0.86.3 | 0.87.1 | Change |
+| --- | --- | --- | --- |
+| Source map, demo app (8 MB) | 104 ms | 84 ms | **1.2× faster** |
+| Source map, 2,000-screen app (17 MB) | 423 ms | 230 ms | **1.8× faster** |
+| First dev bundle, 2,000-screen app | 18.6 s | 15.9 s | **15% faster** |
+| Dev server memory, 2,000-screen app | 568 MB | 405 MB | **29% less** |
+
+The speed-up grows with the size of the app: barely noticeable on a small one, close to the advertised 2× on a large one. Every 0.87.1 round beat every 0.86.3 round on source-map time and server memory, so these aren't noise. The whole server process used about 30% less memory rather than half, which makes sense: the 50% saving is in how source maps are stored, not in everything Metro holds.
+
+<Note title="How I measured">
+  Same machine (Apple M1, 8 GB), same commands, versions alternated between rounds: two rounds on the demo app and three
+  on the large app, with 5 source-map requests per round. One round overlapped with other heavy work on the machine; it's
+  excluded and kept in the repo. The script and every raw result are in the [repo](https://github.com/psingh2907/rn-087-upgrade-lab)'s `scripts` and `metrics` folders.
+</Note>
+
+<Gotcha title="Production bundles: no clear change">
+  Release bundle builds (`react-native bundle --dev false`) took about the same time on both versions for the demo app.
+  On the large app they varied from 20 to 75 seconds between rounds on this 8 GB machine, so I can't claim a difference
+  either way. The source map itself got slightly bigger (17.0 → 18.4 MB).
+</Gotcha>
+
+## Should you upgrade now?
+
+**Yes, if you're on 0.86.** The type errors are mechanical, the template diff is small, and the work transfers directly to 0.88, already at release candidate 3 as I write this. Budget an afternoon for a mid-size app, plus a check of your dependencies.
+
+**Wait a little if** you rely on libraries that deep-import heavily and haven't released Strict-API-ready versions, or if you can't test the edge-to-edge change on Android yet. The Android build itself is unlikely to hold you up: it worked from the template diff alone.
+
+<Takeaways
+  items={[
+    "Merge the template diff by hand: edgeToEdgeEnabled now defaults to true on Android.",
+    "Drop fabricEnabled from MainActivity; even the 0.87.1 template still passes it.",
+    "Try removing the AGP 9 opt-outs on a branch: delete the separate Kotlin plugin line and see if it builds.",
+    "Search for react-native/Libraries imports before upgrading; they are hard errors now.",
+    "Swap ref types to ViewInstance, TextInputInstance and friends.",
+    "Treat useColorScheme() as possibly null, and use 'auto' instead of 'unspecified'.",
+    "Replace InteractionManager with requestIdleCallback, and add the missing types.",
+    "Delete StatusBar translucent/backgroundColor and Modal animated; they're silently ignored.",
+    "Don't rely on the legacy types opt-out: it hides only the type changes, and only through 0.88.",
+  ]}
+/>

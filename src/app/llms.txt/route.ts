@@ -1,5 +1,5 @@
 import { about, experience, faq, projects, site } from "@/content";
-import { publishedNotes } from "@/notes";
+import { livePosts } from "@/blog";
 import { absolute, caseStudyPath } from "@/lib/seo";
 
 export const dynamic = "force-static";
@@ -7,8 +7,8 @@ export const dynamic = "force-static";
 // A plain-Markdown summary for AI tools (the llms.txt proposal, llmstxt.org).
 // Google ignores it and few crawlers ask for it, but it's generated from
 // content.ts, so it costs nothing to keep accurate.
-export function GET() {
-  const notes = publishedNotes().filter((n) => !n.draft);
+export async function GET() {
+  const posts = await livePosts();
   const text = [
     `# ${site.name}`,
     "",
@@ -30,9 +30,11 @@ export function GET() {
     "## Case studies",
     "",
     ...projects.map((p) => `- [${p.name}](${absolute(caseStudyPath(p))}): ${p.summary}`),
-    ...(notes.length
-      ? ["", "## Notes", "", ...notes.map((n) => `- [${n.title}](${absolute(`/notes/${n.slug}`)}): ${n.description}`)]
-      : []),
+    "",
+    "## Blog",
+    "",
+    `- [All posts](${absolute("/blog")}) · [RSS](${absolute("/blog/rss.xml")})`,
+    ...posts.map((p) => `- [${p.title}](${absolute(`/blog/${p.slug}`)}): ${p.description}`),
     "",
     "## Experience",
     "",

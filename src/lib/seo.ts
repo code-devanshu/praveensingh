@@ -74,6 +74,7 @@ export function pageMetadata({
   path,
   type = "website",
   openGraph,
+  image: imageUrl = "/opengraph-image",
   ...rest
 }: {
   title: string;
@@ -81,8 +82,10 @@ export function pageMetadata({
   path: string;
   type?: "website" | "article" | "profile";
   openGraph?: Record<string, unknown>;
+  /** Share image path; defaults to the site-wide card. */
+  image?: string;
 } & Omit<Metadata, "title" | "description" | "openGraph">): Metadata {
-  const image = { url: "/opengraph-image", width: 1200, height: 630, alt: `${site.name}, ${site.role}` };
+  const image = { url: imageUrl, width: 1200, height: 630, alt: title };
   return {
     ...rest,
     title,

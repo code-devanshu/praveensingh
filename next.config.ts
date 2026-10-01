@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import createMDX from "@next/mdx";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["192.168.1.4"],
@@ -12,7 +13,28 @@ const nextConfig: NextConfig = {
       },
       // Browsers and some crawlers ask for /favicon.ico regardless of <link> tags.
       { source: "/favicon.ico", destination: "/icon", permanent: true },
+      // Notes became the blog.
+      { source: "/notes", destination: "/blog", permanent: true },
+      { source: "/notes/:slug", destination: "/blog/:slug", permanent: true },
     ];
   },
 };
-export default nextConfig;
+
+// Blog posts are MDX files in content/blog. Plugins are named as strings so
+// Turbopack can load them: GitHub-flavoured markdown (tables), heading ids
+// for the table of contents, and build-time syntax highlighting (Shiki), so
+// code blocks ship no JavaScript.
+const withMDX = createMDX({
+  options: {
+    remarkPlugins: ["remark-gfm"],
+    rehypePlugins: [
+      "rehype-slug",
+      [
+        "rehype-pretty-code",
+        { theme: { light: "github-light", dark: "github-dark-dimmed" }, keepBackground: false },
+      ],
+    ],
+  },
+});
+
+export default withMDX(nextConfig);

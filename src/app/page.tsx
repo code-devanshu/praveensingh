@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Command } from "@phosphor-icons/react/ssr";
+import { allPosts } from "@/blog";
 import { About } from "@/components/about";
+import { BlogWindow } from "@/components/blog-window";
 import { Contact } from "@/components/contact";
 import { DesktopIcons } from "@/components/desktop-icons";
 import { DesktopMenu } from "@/components/desktop-menu";
@@ -25,7 +27,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
-export default function Home() {
+export default async function Home() {
+  const posts = await allPosts();
+
   return (
     <>
       <JsonLd nodes={[profilePage, faqPage]} />
@@ -46,15 +50,16 @@ export default function Home() {
         <Stack />
         <Terminal className="md:w-[72%] md:self-start" />
         <Process className="md:w-[78%] md:self-end" />
+        <BlogWindow posts={posts} className="md:w-[86%] md:self-center" />
         <About className="md:w-[82%] md:self-start" />
         <Recommendations className="md:w-[70%] md:self-end" />
         <Faq className="md:w-[76%] md:self-start" />
         <Contact className="md:w-[74%] md:self-center" />
         <SiteFooter />
       </main>
-      <Dock />
+      <Dock blog={posts.length > 0} />
       <Notification />
-      <Spotlight />
+      <Spotlight posts={posts.map(({ slug, title, tags }) => ({ slug, title, tags }))} />
       <DesktopMenu />
       <DevTools />
     </>

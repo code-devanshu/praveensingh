@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { site } from "@/content";
-import { publishedNotes } from "@/notes";
 import { SiteFooter } from "./site-footer";
 
 type Crumb = { name: string; path: string };
@@ -11,16 +10,20 @@ type PageShellProps = {
   /** From the home page down to this page. Mirrors the BreadcrumbList data. */
   crumbs: Crumb[];
   children: React.ReactNode;
+  /** Blog posts need room for the table of contents beside the text. */
+  wide?: boolean;
+  /** Drawn inside the title bar, e.g. a reading-progress bar. */
+  titleBarExtra?: React.ReactNode;
 };
 
-// Sub-pages (case studies, résumé, notes): the same wallpaper and window
+// Sub-pages (case studies, résumé, blog): the same wallpaper and window
 // look as the desktop, but a single static window that reads like a
 // document, so it loads fast for visitors arriving from search.
-export function PageShell({ title, crumbs, children }: PageShellProps) {
+export function PageShell({ title, crumbs, children, wide = false, titleBarExtra }: PageShellProps) {
   const links = [
     { href: "/#work", label: "Work" },
+    { href: "/blog", label: "Blog" },
     { href: "/resume", label: "Résumé" },
-    ...(publishedNotes().length > 0 ? [{ href: "/notes", label: "Notes" }] : []),
     { href: "/#contact", label: "Contact" },
   ];
 
@@ -44,14 +47,14 @@ export function PageShell({ title, crumbs, children }: PageShellProps) {
         </nav>
       </header>
 
-      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-3 pb-16 pt-12 md:px-6 md:pt-16">
+      <main className={`mx-auto flex w-full ${wide ? "max-w-5xl" : "max-w-4xl"} flex-1 flex-col gap-6 px-3 pb-16 pt-12 md:px-6 md:pt-16`}>
         <nav aria-label="Breadcrumb" className="glass self-start rounded-full px-4 py-1.5 text-[13px]">
           <ol className="flex flex-wrap items-center gap-1.5">
             {crumbs.map((crumb, i) => (
-              <li key={crumb.path} className="flex items-center gap-1.5">
+              <li key={crumb.path} className="flex min-w-0 items-center gap-1.5">
                 {i > 0 && <span aria-hidden className="text-muted">/</span>}
                 {i === crumbs.length - 1 ? (
-                  <span aria-current="page" className="font-medium">
+                  <span aria-current="page" className="block max-w-[13rem] truncate font-medium sm:max-w-md">
                     {crumb.name}
                   </span>
                 ) : (
@@ -64,8 +67,8 @@ export function PageShell({ title, crumbs, children }: PageShellProps) {
           </ol>
         </nav>
 
-        <div className="overflow-hidden rounded-[22px] bg-surface/90 shadow-[0_0_0_1px_rgb(0_0_0/0.08),0_30px_70px_-20px_rgb(15_23_42/0.45)] backdrop-blur-2xl dark:shadow-[0_0_0_1px_rgb(255_255_255/0.1),0_30px_70px_-20px_rgb(0_0_0/0.7)]">
-          <div className="relative flex h-12 items-center border-b border-hairline px-4">
+        <div className="overflow-clip rounded-[22px] bg-surface/90 shadow-[0_0_0_1px_rgb(0_0_0/0.08),0_30px_70px_-20px_rgb(15_23_42/0.45)] backdrop-blur-2xl dark:shadow-[0_0_0_1px_rgb(255_255_255/0.1),0_30px_70px_-20px_rgb(0_0_0/0.7)]">
+          <div className="sticky top-8 z-10 flex h-12 items-center border-b border-hairline bg-surface/95 px-4 backdrop-blur-xl">
             {/* Just the look of a window here; nothing to close or drag. */}
             <span aria-hidden className="flex gap-2">
               <span className="h-3 w-3 rounded-full bg-[#ff5f57] ring-1 ring-black/10 ring-inset" />
@@ -75,6 +78,7 @@ export function PageShell({ title, crumbs, children }: PageShellProps) {
             <p className="pointer-events-none absolute inset-x-24 truncate text-center text-[13px] font-semibold text-muted">
               {title}
             </p>
+            {titleBarExtra}
           </div>
           {children}
         </div>
