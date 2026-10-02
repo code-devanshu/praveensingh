@@ -1,0 +1,150 @@
+export const meta = {
+  title: "Giving your coding agent eyes on a React Native app: Argent vs agent-device, measured",
+  description:
+    "Two simulator tools for coding agents, each given alone to Claude Code on the same React Native 0.87 app with three planted bugs. Both solved every task. They differed in cost, context and setup.",
+  published: "2026-10-02",
+  tags: ["React Native", "AI", "Developer tools"],
+  platforms: ["iOS"],
+};
+
+<AtAGlance
+  problem="Let a coding agent run, tap through and profile a React Native app by itself"
+  fix="Argent or agent-device, each given alone to Claude Code, on three planted bugs"
+  result="12 / 12"
+  resultLabel="runs fully solved, by both tools; agent-device used about a fifth of the tokens"
+/>
+
+<ShortAnswer>
+  Both tools let a coding agent reproduce, fix, verify and profile real React Native bugs. Every one of the 12 scored
+  runs got full marks. The difference is cost and setup. agent-device runs used about a fifth of the tokens and a
+  third of the money, because it answers with compact text instead of a screenshot after every action. Argent's
+  React profiler worked with no setup on React Native 0.87, while agent-device's needed a package installed and two
+  project files patched first.
+</ShortAnswer>
+
+Coding agents used to stop at "it compiles". In 2026 a set of tools lets them run the app, tap through it, read the screen and profile it. Two are built with React Native in mind: Software Mansion's [Argent](https://argent.swmansion.com/) and Callstack's [agent-device](https://github.com/callstack/agent-device). Both claim to close the loop. I wanted to know what that looks like on a real app, and what it costs.
+
+So I planted three bugs in a small React Native 0.87 app and gave Claude Code the same bug reports twice: once with only Argent, once with only agent-device. Everything is in [a public repo](https://github.com/psingh2907/rn-agent-sim-lab): the app, the harness, the rubric, every transcript and every score.
+
+<Note title="The setup">
+  The store-audit app from my [0.87 upgrade post](/blog/react-native-0-87-upgrade), on React Native 0.87.1 with
+  FlashList, in the iPhone 17 simulator on an Apple M1 with 8 GB of memory. Argent 0.26.0 (its MCP server, skills and
+  rules, as `argent init` installs them) against agent-device 0.21.19 (its CLI, skills from `npx skills add`, and the
+  `CLAUDE.md` text its docs recommend). Claude Code 2.1.42 in headless mode with `claude-sonnet-5-5`, one session per
+  run. Three tasks, two runs per tool per task, 12 scored runs.
+</Note>
+
+## The three bugs
+
+Each run got one bug report, written the way a store auditor would send it, plus a line saying the app is installed and Metro is running. Nothing pointed at files or causes.
+
+1. **Reproduce:** "I tapped yes on 'Fire exit clear of obstructions'. When I scrolled down, other questions I never touched showed yes too." Each row kept its own copy of the answer in `useState`, and FlashList recycles rows, so a recycled row shows the previous question's answer. The agent had to reproduce it in the app and explain it, without changing code.
+2. **Fix and verify:** "The yes/no buttons are missing on questions with long titles." The question text couldn't shrink, so long titles pushed the buttons off screen. The agent had to fix it and prove both long and short rows look right in the app.
+3. **Performance:** "Typing in the Notes box feels laggy." The note's state lived in the screen, so every keystroke re-rendered every visible row, and each row ran a slow keyword check (about 8 ms per row). The agent had to find out why with real measurements, fix it, and measure again.
+
+I wrote the [scoring rubric](https://github.com/psingh2907/rn-agent-sim-lab/blob/main/harness/RUBRIC.md) and committed it before the first scored run: three points per task, and points that need evidence from the running app don't count if the agent only read the code.
+
+## Making it a fair test took four fixes
+
+A comparison like this is only fair if each session sees exactly one tool. My machine has Argent installed globally, so that took more work than I expected:
+
+| Problem | Fix |
+| --- | --- |
+| `--setting-sources project` still loaded my global `~/.claude/CLAUDE.md` and rules, including Argent's. A probe session in the agent-device setup quoted Argent's tapping rule back to me | `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1` and `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` |
+| Argent's global skills are relative symlinks, so copying them into a plugin folder copied broken links | Copy with `cp -RL` |
+| My lab's commit messages described the planted bugs, and agents can read `git log` | Agents work in a separate copy of the app with a single, history-free commit, reset between runs |
+| One agent installed a package to profile, then removed it, leaving empty folders in `node_modules` | `npm prune` and remove empty folders before each run |
+
+Each tool's skills went in through `--plugin-dir`, its MCP config through `--strict-mcp-config`, and its rules through `--append-system-prompt`. The other tool's command was shadowed on `PATH`. A probe run before the real ones confirmed that each session listed only its own tool.
+
+<Gotcha title="You can't start Claude Code from inside Claude Code">
+  Running `claude -p` from an agent session fails with "Claude Code cannot be launched inside another Claude Code
+  session". I started the runs from a separate terminal. The command-line tool also needs its own `claude auth login`;
+  being signed in to the desktop app isn't enough.
+</Gotcha>
+
+## Both tools solved every task
+
+| Task | Argent | agent-device |
+| --- | --- | --- |
+| Reproduce | 6 / 6 | 6 / 6 |
+| Fix and verify | 6 / 6 | 6 / 6 |
+| Performance | 6 / 6 | 6 / 6 |
+
+Every run reproduced or verified in the running app, named the right cause, and the fixes type-checked. In two runs the agent went beyond the report: one Argent run noticed the recycled-row bug while fixing the layout bug, and one agent-device run fixed the slow keyword check as well as the state problem, after checking that the new version gives identical results on all 48 questions.
+
+So on tasks like these, either tool is enough. The model does the reasoning; the tool decides how expensive it is to see the app.
+
+## Where they differed: context and cost
+
+| Median per run | Argent | agent-device |
+| --- | --- | --- |
+| Time | 138 s | 108 s |
+| Tool calls | 34 | 16.5 |
+| Screenshots in the conversation | 11 | 0.5 |
+| Text returned by tools | 59 KB | 17 KB |
+| Tokens processed | 1.84 M | 0.34 M |
+| Cost per run (average) | $1.27 | $0.41 |
+
+The difference comes from what each tool sends back. Every Argent interaction (tap, swipe, launch) returns a screenshot and the full accessibility tree, so the agent always sees the screen, and every image stays in the conversation. agent-device's commands return a compact text snapshot or a diff, with short references like `@e8` to tap, and screenshots only when the agent asks for one. Over a session, that's the difference between about 1.8 million and 0.3 million tokens.
+
+The text-first approach had one concrete advantage in this app. agent-device's snapshot printed the pill's selected state as text:
+
+```text
+@e29 [button] "yes for Entrance mats clean" [selected]
+```
+
+Argent's tree didn't include the selected state, so Argent's agent found the stray "yes" by looking at screenshots. One of its reports says so directly. Both got there; one needed the image.
+
+## Where they differed: profiling setup
+
+Both tools can profile React renders, and both agents found and measured the slow typing:
+
+| Performance runs | Argent | agent-device |
+| --- | --- | --- |
+| Before the fix | 155–179 ms per slow commit, 162 row re-renders | 145–153 ms average per keystroke, every visible row re-rendered |
+| After the fix | no commit over 16 ms | about 1 ms per keystroke |
+| Time per run | 195 s, 229 s | 296 s, 517 s |
+
+Argent's profiler worked straight away on React Native 0.87. It also sampled the CPU, which pointed straight at the slow code: `RegExp` construction took 943 ms of the 1.6 seconds of JavaScript work while typing.
+
+agent-device's React DevTools needed setup first. On 0.87 both agent-device runs had to install `agent-react-devtools` into the project and run its `init`, which patches `index.js` and `metro.config.js`. Both agents undid it afterwards, but it made these its slowest runs. In one, a `react-devtools wait --connected` call hung and the agent had to restart the helper. Even so, agent-device's performance runs cost less: $0.80 each against $2.00.
+
+<Gotcha title="Check what a profiling setup leaves behind">
+  One agent installed the DevTools package with `--save-dev`, so it went into `package.json` until the agent removed
+  it again. If you let an agent set up profiling in your real repo, review the diff for `index.js`, `metro.config.js`
+  and `package.json` changes before you commit.
+</Gotcha>
+
+## Different habits
+
+One pattern held in all four fix-and-verify runs. Both Argent runs looked at the broken screen first, then changed the code and checked again. Both agent-device runs changed the code straight from reading it, then checked the app. The rubric didn't require seeing the bug first, and all four fixes were correct. But on a less obvious bug, fixing what the code suggests rather than what the app shows could miss.
+
+I can't tell from four runs whether this comes from the tools. agent-device's guidance tells the agent to "start immediately", and every Argent action shows the screen, which may encourage looking first.
+
+## What the numbers don't show
+
+- **One model, one app, two runs per task.** I planned three runs; after two rounds every run had full marks, so I stopped. These tasks didn't separate the tools on success; harder tasks might.
+- **One run was cut off.** The account running the sessions hit its usage limit during Argent's second performance run. I re-ran it once the limit reset. The cut-off attempt is in the repo, excluded from the totals.
+- **The simulator, not a phone.** Both tools also drive Android and physical devices; I tested neither.
+- **I scored them, and I'm Claude.** The rubric was committed first, the points need evidence from tool output rather than the agent's own claims, and every transcript is public so you can check.
+
+## Which should you use?
+
+**Use agent-device when you run agents on the app a lot**: many UI checks, CI, or long sessions. It was about three times cheaper per run and quicker on the everyday tasks, and its text snapshots carry states like `[selected]` that you'd otherwise need a screenshot for.
+
+**Use Argent when profiling is the main job**, or you want the agent to see the screen by default. Its React and CPU profiler worked on React Native 0.87 with no project changes, and it pointed straight at the slow code.
+
+**Either way, help the tool.** Both rely on the accessibility tree. The planted app had `accessibilityLabel` and `accessibilityState` on its buttons, and that's what let both agents find the right row and read its state. If your app doesn't, the agent falls back to screenshots and coordinates.
+
+<Takeaways
+  items={[
+    "Both Argent and agent-device let Claude Code reproduce, fix, verify and profile real React Native bugs: 12 of 12 runs got full marks.",
+    "agent-device used about a fifth of the tokens and a third of the cost, because it returns text snapshots instead of a screenshot after every action.",
+    "Argent's React and CPU profiler worked on React Native 0.87 with no setup; agent-device's needed agent-react-devtools installed and two files patched.",
+    "Review the diff after an agent sets up profiling: index.js, metro.config.js and package.json can change.",
+    "Add accessibilityLabel and accessibilityState to interactive elements; both tools read the accessibility tree first.",
+    "To compare agent tools fairly, isolate each session: --setting-sources project doesn't stop global CLAUDE.md and rules loading.",
+    "Keep git history out of the agent's workspace if your commits describe the bugs you're testing.",
+  ]}
+/>
