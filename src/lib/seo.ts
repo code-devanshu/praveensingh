@@ -75,24 +75,39 @@ export function pageMetadata({
   type = "website",
   openGraph,
   image: imageUrl = "/opengraph-image",
+  shareTitle = title,
+  markdown,
   ...rest
 }: {
   title: string;
   description: string;
   path: string;
+  /** Title for share cards and the image's alt text, if longer than the search title. */
+  shareTitle?: string;
+  /** Path of a plain-Markdown copy of the page, advertised as an alternate. */
+  markdown?: string;
   type?: "website" | "article" | "profile";
   openGraph?: Record<string, unknown>;
   /** Share image path; defaults to the site-wide card. */
   image?: string;
 } & Omit<Metadata, "title" | "description" | "openGraph">): Metadata {
-  const image = { url: imageUrl, width: 1200, height: 630, alt: title };
+  const image = { url: imageUrl, width: 1200, height: 630, alt: shareTitle };
   return {
     ...rest,
     title,
     description,
-    alternates: { canonical: path },
-    openGraph: { type, url: path, title, description, siteName: site.name, locale: "en_IN", images: [image], ...openGraph },
-    twitter: { card: "summary_large_image", title, description, images: [image] },
+    alternates: { canonical: path, ...(markdown && { types: { "text/markdown": markdown } }) },
+    openGraph: {
+      type,
+      url: path,
+      title: shareTitle,
+      description,
+      siteName: site.name,
+      locale: "en_IN",
+      images: [image],
+      ...openGraph,
+    },
+    twitter: { card: "summary_large_image", title: shareTitle, description, images: [image] },
   } as Metadata;
 }
 

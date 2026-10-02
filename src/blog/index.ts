@@ -22,6 +22,14 @@ export type PostMeta = {
   /** Which platforms the post applies to, shown as badges. */
   platforms?: ("iOS" | "Android")[];
   draft?: boolean;
+  /** Shorter title for search results (the site name is appended). Keep it to 43 characters or fewer. */
+  seoTitle?: string;
+  /** Shorter description for search results and share cards. Keep it to 155 characters or fewer. */
+  seoDescription?: string;
+  /** The public repo with the code and raw results behind the post. */
+  repo?: string;
+  /** Tools and libraries the post is about, for structured data. */
+  mentions?: { name: string; url: string }[];
 };
 
 export type Heading = { id: string; text: string; level: 2 | 3 };
@@ -29,6 +37,7 @@ export type Heading = { id: string; text: string; level: 2 | 3 };
 export type Post = PostMeta & {
   slug: string;
   readingMinutes: number;
+  wordCount: number;
   headings: Heading[];
 };
 
@@ -38,13 +47,12 @@ const showUnpublished = process.env.NODE_ENV !== "production";
 const isLive = (meta: PostMeta) => !meta.draft && meta.published <= new Date().toISOString().slice(0, 10);
 
 // Words a reader reads: everything but code blocks, imports/exports and JSX tags.
-function readingMinutes(source: string) {
+function wordCount(source: string) {
   const prose = source
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/^(import|export)[\s\S]*?;$/gm, " ")
     .replace(/<[^>]+>/g, " ");
-  const words = prose.split(/\s+/).filter(Boolean).length;
-  return Math.max(1, Math.round(words / 230));
+  return prose.split(/\s+/).filter(Boolean).length;
 }
 
 // Same ids rehype-slug gives the rendered headings (both use github-slugger).
@@ -60,7 +68,8 @@ function headings(source: string): Heading[] {
 async function load(slug: string): Promise<Post> {
   const source = fs.readFileSync(path.join(dir, `${slug}.mdx`), "utf8");
   const { meta } = (await import(`./posts/${slug}.mdx`)) as { meta: PostMeta };
-  return { ...meta, slug, readingMinutes: readingMinutes(source), headings: headings(source) };
+  const words = wordCount(source);
+  return { ...meta, slug, wordCount: words, readingMinutes: Math.max(1, Math.round(words / 230)), headings: headings(source) };
 }
 
 /** Newest first. Includes drafts and scheduled posts in development only. */

@@ -33,8 +33,10 @@ export async function GET() {
     "",
     "## Blog",
     "",
-    `- [All posts](${absolute("/blog")}) · [RSS](${absolute("/blog/rss.xml")})`,
-    ...posts.map((p) => `- [${p.title}](${absolute(`/blog/${p.slug}`)}): ${p.description}`),
+    `- [All posts](${absolute("/blog")}) · [RSS](${absolute("/blog/rss.xml")}) · [Every post in full](${absolute("/llms-full.txt")})`,
+    ...posts.map(
+      (p) => `- [${p.title}](${absolute(`/blog/${p.slug}`)}) ([Markdown](${absolute(`/blog/${p.slug}.md`)})): ${p.description}`,
+    ),
     "",
     "## Experience",
     "",

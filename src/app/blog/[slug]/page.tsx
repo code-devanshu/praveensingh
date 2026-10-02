@@ -21,9 +21,12 @@ export async function generateMetadata({ params }: PageProps<"/blog/[slug]">): P
   const post = await findPost((await params).slug);
   if (!post) return {};
   return pageMetadata({
-    title: post.title,
-    description: post.description,
+    // Search results show about 60 characters of title and 155 of description.
+    title: post.seoTitle ?? post.title,
+    shareTitle: post.title,
+    description: post.seoDescription ?? post.description,
     path: `/blog/${post.slug}`,
+    markdown: `/blog/${post.slug}.md`,
     type: "article",
     image: `/blog/${post.slug}/opengraph-image`,
     keywords: post.tags,
@@ -84,7 +87,17 @@ export default async function PostPage({ params }: PageProps<"/blog/[slug]">) {
             isPartOf: { "@id": absolute("/blog#blog") },
             keywords: post.tags.join(", "),
             timeRequired: `PT${post.readingMinutes}M`,
+            wordCount: post.wordCount,
             inLanguage: "en",
+            // The evidence behind the post, and what it's about: both help
+            // answer engines decide what to cite it for.
+            ...(post.repo && {
+              isBasedOn: { "@type": "SoftwareSourceCode", codeRepository: post.repo, url: post.repo },
+            }),
+            ...(post.mentions && {
+              mentions: post.mentions.map((m) => ({ "@type": "SoftwareApplication", name: m.name, url: m.url })),
+            }),
+            encoding: { "@type": "MediaObject", encodingFormat: "text/markdown", contentUrl: absolute(`${path}.md`) },
           },
           breadcrumbs([
             { name: "Home", path: "/" },

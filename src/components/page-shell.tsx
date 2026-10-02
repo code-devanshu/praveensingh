@@ -75,7 +75,8 @@ export function PageShell({ title, crumbs, children, wide = false, titleBarExtra
               <span className="h-3 w-3 rounded-full bg-[#febc2e] ring-1 ring-black/10 ring-inset" />
               <span className="h-3 w-3 rounded-full bg-[#28c840] ring-1 ring-black/10 ring-inset" />
             </span>
-            <p className="pointer-events-none absolute inset-x-24 truncate text-center text-[13px] font-semibold text-muted">
+            {/* Decorative like the buttons: the page's own heading names it for screen readers. */}
+            <p aria-hidden className="pointer-events-none absolute inset-x-24 truncate text-center text-[13px] font-semibold text-muted">
               {title}
             </p>
             {titleBarExtra}

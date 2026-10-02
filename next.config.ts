@@ -3,6 +3,13 @@ import createMDX from "@next/mdx";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["192.168.1.4"],
+  async rewrites() {
+    return [
+      // A plain-Markdown copy of each post (src/app/blog/[slug]/md). Plain
+      // rewrites run before dynamic routes, so this wins over /blog/[slug].
+      { source: "/blog/:slug.md", destination: "/blog/:slug/md" },
+    ];
+  },
   async redirects() {
     return [
       // The résumé PDF was renamed; keep old links and shares working.
