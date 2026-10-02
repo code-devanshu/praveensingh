@@ -1,0 +1,251 @@
+export const meta = {
+  title: "On-device AI in React Native, late 2026: one AI SDK call, two engines, measured",
+  description:
+    "Apple Foundation Models and ExecuTorch behind the same AI SDK call in a React Native 0.87 app: what it took to build, how fast each was, and how often a 1B model returns valid JSON.",
+  published: "2026-10-02",
+  tags: ["React Native", "AI", "On-device AI"],
+  platforms: ["iOS", "Android"],
+};
+
+<AtAGlance
+  problem="Run an LLM inside a React Native app, with no server and no API key"
+  fix="Two on-device engines behind one AI SDK call, plus a model picker that checks each engine actually works"
+  result="20 vs 2"
+  resultLabel="valid structured outputs out of 20: Apple's guided generation vs a 1B ExecuTorch model"
+/>
+
+<ShortAnswer>
+  On-device AI in React Native is practical now, but the two engines suit different jobs. Use Apple's Foundation
+  Models when the device has it: no download, and guided generation returned valid structured output 20 times out of
+  20. Use ExecuTorch for everything else, but not for structured output from a 1B model: only 2 of 20 responses
+  matched my schema. Keep a cloud fallback, and check that each engine really works rather than trusting its
+  availability flag.
+</ShortAnswer>
+
+React Native got a lot of AI news this year. WWDC26 expanded Apple's Foundation Models framework (image input, Private Cloud Compute, third-party models behind the same API). Software Mansion rewrote ExecuTorch for 0.10 with Core ML, MLX and Vulkan backends. Callstack's [`react-native-ai`](https://github.com/callstackincubator/ai) put Apple's model, llama.rn, MLC and Gemini Nano behind the Vercel AI SDK. An `expo-ai` package is in review in the Expo repo.
+
+Release posts tell you what's possible. I wanted to know what it takes, so I built one small React Native 0.87 app that calls both engines through the same `streamText` / `generateObject` code, and measured them on the same tasks.
+
+Everything is in [a public repo](https://github.com/psingh2907/rn-on-device-ai-lab): code, raw results and the failures.
+
+<Note title="The setup, and what I couldn't measure">
+  React Native 0.87.1, AI SDK 6, `@react-native-ai/apple` 0.12.0, `react-native-executorch` 0.10.4 running Llama 3.2
+  1B. An Apple M1 with 8 GB of memory, the iPhone 17 simulator on iOS 26.3, **no physical devices**. ExecuTorch ran in
+  the app on the simulator. Apple's model wouldn't run in the simulator (more below), so I ran the same tasks against
+  it from Swift on the Mac. These are Mac numbers, not iPhone numbers: use them to compare the two engines, not to
+  predict latency on a phone. Gemini Nano on Android needs a supported phone, so it's covered from the docs only.
+</Note>
+
+## The two tasks
+
+Five store-audit notes, written the way an auditor types them on a phone:
+
+> Freezer 2 door seal torn, temp reading -12 instead of -18. Aisle 4 lights flickering. Fire exit at the back blocked by two pallets of water.
+
+1. **Summary:** streamed, two sentences, most urgent issue first. I measured time to first text and total time.
+2. **Checklist:** structured output, validated against a Zod schema with `generateObject`. One item per issue, each with an area, an issue and a severity of `low`, `medium` or `high`. 10 runs per engine, per run of the benchmark.
+
+## One call site for both engines
+
+Apple's model already has an AI SDK provider. ExecuTorch doesn't, so I wrote a small adapter. Version 0.10 makes this easier: below the `useLLMChatSession` hook it exposes the runner and the model's chat template as separate pieces.
+
+I didn't use the chat session itself. It keeps a growing conversation in the model's cache, which suits a chat screen but not a one-off `generateText` call. The adapter resets the runner and renders the AI SDK prompt from scratch on every call:
+
+```ts title="src/lab/executorchModel.ts (excerpt)"
+async function run(options: LanguageModelV3CallOptions, onToken: (t: string) => void) {
+  const schema = options.responseFormat?.type === 'json' ? options.responseFormat.schema : undefined;
+  const messages = toMessages(options.prompt, schema); // AI SDK prompt -> chat messages
+  runner.reset(); // stateless: no history from earlier calls
+  const prompt = preprocessor.process(messages, messages.length, { addGenPrompt: true });
+  preprocessor.clear();
+  const genConfig = { maxNewTokens: options.maxOutputTokens ?? 512, temperature: options.temperature ?? 0.7 };
+  return generateAsync(runner, prompt, genConfig, stopTokens, onToken); // runs on a worklet thread
+}
+```
+
+`doGenerate` and `doStream` wrap that, and after that the calling code is the same for both engines:
+
+```ts
+const result = streamText({ model, system, prompt, maxOutputTokens: 160 });
+const { object } = await generateObject({ model, schema: checklistSchema, system, prompt });
+```
+
+There's one difference the code can't hide. Apple's model fills the schema through **guided generation**: the framework restricts what the model can output to fit the type. ExecuTorch has no equivalent here, so the adapter puts the schema in the prompt and hopes. That difference decided the structured-output results.
+
+## Getting it to build took seven fixes
+
+None of these are hard, but each one stops the app from building or running, and I didn't find any of them in the docs:
+
+| Problem | Fix |
+| --- | --- |
+| iOS build fails: `unknown type name 'RCTCxxBridge'` in `RnExecutorch.mm` | React Native 0.87 removed it. Patch the module to install its JSI bindings through `RCTTurboModuleWithJSIBindings` ([patch](https://github.com/psingh2907/rn-on-device-ai-lab/blob/main/patches/react-native-executorch%2B0.10.4.patch)) |
+| CocoaPods: "required a higher minimum deployment target" | `platform :ios, '17.0'` in the `Podfile` |
+| Metro: "Export namespace should be first transformed" | Add `@babel/plugin-transform-export-namespace-from`, the **v7** release (v8 needs Babel 8) |
+| ExecuTorch native calls fail | `react-native-worklets/plugin`, last in the Babel plugins |
+| `Property 'TextDecoder' doesn't exist` | Polyfills for the AI SDK on Hermes (below) |
+| `ai@latest` installs 7.x | Pin `ai@6`: the React Native AI providers implement the v6 spec |
+| npm 11 skips ExecuTorch's postinstall | Approve it after reading it: it downloads the native libraries from the project's GitHub releases |
+
+The polyfills:
+
+```ts title="src/polyfills.ts"
+import 'web-streams-polyfill/polyfill'; // ReadableStream, TransformStream
+import 'fast-text-encoding'; // TextDecoder
+import { TextDecoderStream, TextEncoderStream } from '@stardazed/streams-text-encoding';
+import structuredClone from '@ungap/structured-clone';
+
+const g = globalThis as any;
+g.TextEncoderStream ??= TextEncoderStream;
+g.TextDecoderStream ??= TextDecoderStream;
+g.structuredClone ??= (value: unknown) => structuredClone(value);
+```
+
+<Gotcha title="Use the global ReadableStream in your adapter">
+  My first streaming run died with "First parameter has member 'readable' that is not a ReadableStream". I had
+  imported `ReadableStream` from `web-streams-polyfill`, which is a different class from the global one the polyfill
+  installs, and the AI SDK checks against the global. Build streams with `globalThis.ReadableStream`.
+</Gotcha>
+
+<Gotcha title="ExecuTorch sends download analytics by default">
+  Version 0.10 reports anonymous download events to Software Mansion unless you call `setTelemetryEnabled(false)`.
+  That's easy to miss, and it matters if you picked on-device AI for privacy.
+</Gotcha>
+
+## Two things that failed on the simulator
+
+**Apple's model said it was available, then failed every call.** `apple.isAvailable()` returned `true` in the iOS 26.3 simulator, and all 30 calls across two runs failed with `GenerationError error -1`. The simulator log had the real reason: the model catalog had no assets (`UnifiedAssetFramework Code=5000`). The same model worked from Swift on the Mac, which runs macOS 26.6, so my guess is a mismatch between the simulator runtime and the Mac's model assets. Either way, the availability flag isn't proof.
+
+**The MLX build of the model downloaded, then wouldn't load.** I picked `LLAMA3_2_1B.MLX_INT4` to compare against the CPU backend. It downloaded all 1.18 GB, then failed with `Error::NotFound`. The podspec explains it: the MLX backend is only linked into device builds, because the simulator SDK lacks the Metal APIs it needs. `.DEFAULT` would have avoided this, because it only picks backends that are actually linked into the build.
+
+Both lead to the same rule, and it's built into the model picker below: **check that an engine works with a real call, and use the library's defaults rather than hard-coding a variant.**
+
+## Speed: similar once warm
+
+| | ExecuTorch, Llama 3.2 1B (simulator) | Apple Foundation Models (Mac) |
+| --- | --- | --- |
+| Download before first use | 1.14 GB, 6 min 12 s | none, part of the OS |
+| Load from disk | 4.4–5.3 s | none |
+| First call, time to first text | 0.6–0.8 s | **9.7–19.2 s** |
+| Later calls, time to first text (median) | 579 ms | 580 ms |
+| Later calls, full summary (median) | 2.5 s | 2.9 s |
+| Generation speed (median) | 43 tokens/s | not reported |
+| App memory while generating (median) | **907 MB** | not in the app's process |
+
+Once both were warm, they were close. The differences are at the edges:
+
+- **ExecuTorch's cost is up front.** A 1.14 GB download on first use, then about 5 s to load the model on each launch. While generating, the app used about 900 MB of memory, which matters on phones that kill background apps.
+- **Apple's cost is the first call.** That first call took 10–19 s on this Mac, and later calls took about half a second. The model runs in a system process, so it adds nothing to your app's memory, and there's nothing to download.
+
+<Note title="How I measured">
+  Two full runs per engine: 5 summaries and 10 checklists each, plus a third set of 10 checklists for the prompt fix
+  below. The first call of each run is reported separately. Memory is the app process's resident size, sampled on
+  the Mac at each result. The Mac was swapping during the runs (5.6 of 6 GB of swap in use), which hurts the Apple
+  numbers most. The raw results and the summary script are in the repo's `metrics` and `scripts` folders.
+</Note>
+
+`@react-native-ai/apple` reports zero tokens to the AI SDK, so its token counts and tokens per second are missing. Compare time to first text and total time instead.
+
+## Structured output: 2 out of 20 vs 20 out of 20
+
+This is the biggest difference between the two engines:
+
+| Checklist output that passed the Zod schema | Valid |
+| --- | --- |
+| ExecuTorch, schema in the prompt | **2 / 20** |
+| ExecuTorch, example in the prompt, plus a repair step | **6 / 10** |
+| Apple, guided generation | **20 / 20** |
+
+The 1B model failed in three ways:
+
+1. **It returned the schema.** In 5 of the 9 failures in one run, it replied with the JSON Schema itself (`{"$schema": "http://json-schema.org/draft-07/schema#", ...}`) instead of filling it in.
+2. **Wrong case:** `"severity": "High"` where the schema says `"high"`.
+3. **Not JSON at all:** a bulleted list wrapped in braces.
+
+Two cheap changes raised the pass rate from 1 in 10 to 6 in 10 in the same run. Show an example instead of the schema, and lower-case the enum values before validation:
+
+```ts
+const { object } = await generateObject({
+  model,
+  schema: checklistSchema,
+  prompt,
+  // The adapter puts this example in the prompt instead of the JSON Schema.
+  providerOptions: { executorch: { jsonExample: '{"items":[{"area":"Aisle 2","issue":"Spilled milk","severity":"high"}]}' } },
+  experimental_repairText: async ({ text }) => text.replace(/"(low|medium|high)"/gi, (m) => m.toLowerCase()),
+});
+```
+
+6 out of 10 still isn't good enough to ship, and passing the schema doesn't mean the content is right. I read every valid checklist from the 1B model:
+
+- Two of the six copied my example into the store's checklist: "Aisle 2: Spilled milk on floor" was never in the note.
+- Fields got mixed up: "Back fire exit: Expired yoghurt found in dairy fridge".
+- Items were duplicated, and every item, in every valid checklist, was marked high.
+
+Apple's 20 checklists listed every issue in each note, in sensible areas, and never invented one. It rated a few minor issues too high (a frozen checkout scanner as high), but the fire, rodent and food-safety issues were high every time.
+
+Neither engine was good at the summaries. The 1B model opened every one with "Here is a two-sentence summary", then often wrote three or four. It also misread the notes: once it said the torn freezer seal was blocking the fire exit, once that a leaking roof was "not an issue". Apple's summaries were shorter (177 characters against 396), but half came back as Markdown bullet lists rather than two sentences. One left out the wet floor, and another ranked the frozen scanner above expired food.
+
+**If your feature needs structured output, a 1B model in your app isn't enough.** Use the system model, a larger downloaded model (Llama 3.2 3B is in ExecuTorch's catalog), or the cloud.
+
+## Choosing a model at runtime
+
+Here's the picker the lab uses. The order is fixed: Apple's model if it really works, then a downloaded model if the user agreed to the download, then the cloud. The result is cached for the session.
+
+```ts title="src/lab/router.ts"
+// apple.isAvailable() said true in the simulator while every call failed,
+// so it's only a first filter. A one-token call is the real check.
+async function appleWorks() {
+  if (Platform.OS !== 'ios' || !apple.isAvailable()) return false;
+  try {
+    await generateText({ model: apple(), prompt: 'Reply with OK.', maxOutputTokens: 2 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function pickModel(cloud: LanguageModel, opts: { allowDownload: boolean }): Promise<Route> {
+  return (cached ??= (async (): Promise<Route> => {
+    if (await appleWorks()) return { model: apple(), where: 'on-device (Apple)' };
+    if (opts.allowDownload) {
+      // DEFAULT only picks backends linked into this build.
+      const et = createExecutorchModel('llama-3.2-1b', models.llm.LLAMA3_2_1B.DEFAULT);
+      try {
+        await et.load();
+        return { model: et.model, where: 'on-device (downloaded model)' };
+      } catch {}
+    }
+    return { model: cloud, where: 'cloud' };
+  })());
+}
+```
+
+`where` is for the UI. If people chose your feature because their text stays on the phone, tell them when it doesn't. That applies to the cloud fallback, and to Apple's Private Cloud Compute when iOS 27 sends a request there.
+
+This code is type-checked but not benchmarked; the lab measured each engine on its own.
+
+## Android: Gemini Nano, from the docs
+
+I couldn't test this one: Gemini Nano needs a supported Android 14+ phone, and an emulator won't do. On paper it fits the same pattern. [`@react-native-ai/adk`](https://www.react-native-ai.dev/docs/adk/getting-started) is another AI SDK provider, so it would be one more branch in `pickModel`. Its availability check comes in steps: `isNanoSupported()` (can this phone run it?), `isAvailable()` (is it ready?) and `prepareNano()`. Given what happened with Apple's flag, I'd still add a probe call. ExecuTorch also runs on Android, using Vulkan for the GPU, so the downloaded-model branch carries over unchanged.
+
+## What to use, and when
+
+**Use Apple's Foundation Models first on iOS.** There's nothing to download, it doesn't use your app's memory, and guided generation makes structured output reliable. Expect a slow first call, so warm the model up before the user needs it.
+
+**Use ExecuTorch when there's no system model**, for short free-text tasks where a person reads the result: rewording, suggestions, drafts. Check its output before you act on it. Ask before the 1 GB download, show progress, and turn off telemetry. Don't depend on a 1B model for JSON.
+
+**Keep a cloud fallback**, and label it in the UI.
+
+**Watch `expo-ai`.** It's in review with an Apple provider, streaming and tool calls. If it lands, most of the setup fixes above become Expo's problem rather than yours.
+
+<Takeaways
+  items={[
+    "Put both engines behind the AI SDK so the calling code stays the same; ExecuTorch needs a small adapter.",
+    "Pin ai@6 for the React Native AI providers, and add stream, TextDecoder and structuredClone polyfills for Hermes.",
+    "ExecuTorch 0.10.4 needs a one-file patch to build on React Native 0.87 iOS.",
+    "Don't trust apple.isAvailable() alone: make a tiny probe call and cache the result.",
+    "Use ExecuTorch's .DEFAULT variants; MLX variants download and then fail on the simulator.",
+    "A 1B model returned schema-valid JSON 2 times in 20; an example prompt and a repair step got it to 6 in 10.",
+    "Apple's guided generation returned valid output 20 times in 20.",
+    "Turn off ExecuTorch telemetry, and show users when a request leaves the device.",
+  ]}
+/>
