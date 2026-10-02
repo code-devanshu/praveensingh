@@ -8,6 +8,7 @@ import { PageShell } from "@/components/page-shell";
 import { site } from "@/content";
 import { allPosts, findPost, formatDate, postBody, tagSlug } from "@/blog";
 import { ReadingProgress } from "@/blog/reading-progress";
+import { TableOfContents } from "@/blog/table-of-contents";
 import { absolute, breadcrumbs, ids, pageMetadata } from "@/lib/seo";
 
 export const dynamicParams = false;
@@ -138,22 +139,7 @@ export default async function PostPage({ params }: PageProps<"/blog/[slug]">) {
             <Body />
           </div>
 
-          {post.headings.length > 2 && (
-            <nav aria-label="On this page" className="hidden lg:block">
-              <div className="sticky top-32 mt-10 text-sm">
-                <p className="font-semibold">On this page</p>
-                <ol className="mt-3 space-y-2 border-l border-hairline">
-                  {post.headings.map((h) => (
-                    <li key={h.id} className={h.level === 3 ? "pl-6" : "pl-3"}>
-                      <a href={`#${h.id}`} className="block leading-snug text-muted hover:text-accent">
-                        {h.text}
-                      </a>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            </nav>
-          )}
+          {post.headings.length > 2 && <TableOfContents headings={post.headings} />}
         </div>
 
         <footer className="mt-14 max-w-[66ch] space-y-8">
