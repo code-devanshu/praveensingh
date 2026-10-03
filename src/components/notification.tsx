@@ -16,13 +16,15 @@ export function Notification() {
     try {
       if (sessionStorage.getItem("notified")) return;
     } catch {}
+    // Timed from navigation, not mount: this mounts late (see deferred.tsx).
+    const at = (seconds: number) => Math.max(0, (bootDelay() + seconds) * 1000 - performance.now());
     const show = setTimeout(() => {
       setOpen(true);
       try {
         sessionStorage.setItem("notified", "1");
       } catch {}
-    }, (bootDelay() + 3.5) * 1000);
-    const hide = setTimeout(() => setOpen(false), (bootDelay() + 13) * 1000);
+    }, at(4));
+    const hide = setTimeout(() => setOpen(false), at(13.5));
     return () => {
       clearTimeout(show);
       clearTimeout(hide);

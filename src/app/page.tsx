@@ -4,20 +4,17 @@ import { allPosts } from "@/blog";
 import { About } from "@/components/about";
 import { BlogWindow } from "@/components/blog-window";
 import { Contact } from "@/components/contact";
+import { Deferred } from "@/components/deferred";
 import { DesktopIcons } from "@/components/desktop-icons";
-import { DesktopMenu } from "@/components/desktop-menu";
-import { DevTools } from "@/components/dev-tools";
 import { Dock } from "@/components/dock";
 import { Experience } from "@/components/experience";
 import { Faq } from "@/components/faq";
 import { Hero } from "@/components/hero";
 import { JsonLd } from "@/components/json-ld";
 import { MenuBar } from "@/components/menu-bar";
-import { Notification } from "@/components/notification";
 import { Process } from "@/components/process";
 import { Recommendations } from "@/components/recommendations";
 import { SiteFooter } from "@/components/site-footer";
-import { Spotlight } from "@/components/spotlight";
 import { Stack } from "@/components/stack";
 import { Terminal } from "@/components/terminal";
 import { Work } from "@/components/work";
@@ -58,10 +55,8 @@ export default async function Home() {
         <SiteFooter />
       </main>
       <Dock blog={posts.length > 0} />
-      <Notification />
-      <Spotlight posts={posts.map(({ slug, title, tags }) => ({ slug, title, tags }))} />
-      <DesktopMenu />
-      <DevTools />
+      {/* Spotlight, the desktop menu, dev tools and the notification load after the page. */}
+      <Deferred posts={posts.map(({ slug, title, tags }) => ({ slug, title, tags }))} />
     </>
   );
 }
