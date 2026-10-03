@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { site } from "@/content";
+import { DocumentWindow } from "./document-window";
 import { SiteFooter } from "./site-footer";
 
 type Crumb = { name: string; path: string };
@@ -17,8 +18,9 @@ type PageShellProps = {
 };
 
 // Sub-pages (case studies, résumé, blog): the same wallpaper and window
-// look as the desktop, but a single static window that reads like a
-// document, so it loads fast for visitors arriving from search.
+// look as the desktop, but a single window that reads like a document, so
+// it loads fast for visitors arriving from search. The page is server
+// rendered; only the window's traffic lights run on the client.
 export function PageShell({ title, crumbs, children, wide = false, titleBarExtra }: PageShellProps) {
   const links = [
     { href: "/#work", label: "Work" },
@@ -26,6 +28,8 @@ export function PageShell({ title, crumbs, children, wide = false, titleBarExtra
     { href: "/resume", label: "Résumé" },
     { href: "/#contact", label: "Contact" },
   ];
+  // Closing the window goes one level up the breadcrumbs.
+  const parent = crumbs[crumbs.length - 2] ?? crumbs[0];
 
   return (
     <>
@@ -67,23 +71,14 @@ export function PageShell({ title, crumbs, children, wide = false, titleBarExtra
           </ol>
         </nav>
 
-        <div className="window overflow-clip">
-          {/* A frosted toolbar: the page scrolls under it. */}
-          <div className="titlebar sticky top-8 z-10 flex h-12 items-center border-b border-hairline bg-surface/80 px-4 backdrop-blur-xl backdrop-saturate-150">
-            {/* Just the look of a window here; nothing to close or drag. */}
-            <span aria-hidden className="flex gap-2">
-              <span className="light light-close h-3 w-3 rounded-full" />
-              <span className="light light-minimise h-3 w-3 rounded-full" />
-              <span className="light light-zoom h-3 w-3 rounded-full" />
-            </span>
-            {/* Decorative like the buttons: the page's own heading names it for screen readers. */}
-            <p aria-hidden className="pointer-events-none absolute inset-x-24 truncate text-center text-[13px] font-semibold text-muted">
-              {title}
-            </p>
-            {titleBarExtra}
-          </div>
+        <DocumentWindow
+          title={title}
+          closeHref={parent.path}
+          closeName={parent.name}
+          titleBarExtra={titleBarExtra}
+        >
           {children}
-        </div>
+        </DocumentWindow>
 
         <SiteFooter />
       </main>
