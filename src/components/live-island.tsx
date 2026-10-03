@@ -2,14 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Phone, PhoneDisconnect, PhoneX } from "@phosphor-icons/react";
+import { Command, Phone, PhoneDisconnect, PhoneX } from "@phosphor-icons/react";
 import { availability, site } from "@/content";
 import { bootDelay, openWindow } from "@/lib/desktop";
 
-type Mode = "island" | "live" | "ringing" | "missed";
+type Mode = "boot" | "live" | "ringing" | "missed";
 
 const sizes: Record<Mode, string> = {
-  island: "h-[22px] w-[30%] rounded-[11px] md:h-[26px] md:rounded-[13px]",
+  boot: "h-[22px] w-[40%] rounded-[11px] md:h-[26px] md:rounded-[13px]",
   live: "h-[22px] w-[86%] rounded-[11px] md:h-[26px] md:rounded-[13px]",
   missed: "h-[22px] w-[86%] rounded-[11px] md:h-[26px] md:rounded-[13px]",
   ringing: "h-14 w-[94%] rounded-[26px] md:h-16 md:rounded-[30px]",
@@ -21,16 +21,19 @@ const fade = {
   exit: { opacity: 0, transition: { duration: 0.1 } },
 };
 
-// The front phone's Dynamic Island grows into a live activity saying Praveen
-// is available. Tap it and Praveen calls you: accept opens the Mail window,
+// The front phone's Dynamic Island boots first: the boot screen in miniature,
+// a ⌘ and a filling bar, drawn by the server and animated in CSS so it plays
+// from first paint. Then it grows into a live activity saying Praveen is
+// available. Tap it and Praveen calls you: accept opens the Mail window,
 // decline leaves a missed call. On Android phones it really buzzes.
 export function LiveIsland() {
-  const [mode, setMode] = useState<Mode>("island");
+  const [mode, setMode] = useState<Mode>("boot");
   const accept = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const next: Partial<Record<Mode, [Mode, number]>> = {
-      island: ["live", (bootDelay() + 1.1) * 1000],
+      // The bar fills in about 1.1s from navigation; hydration may land later.
+      boot: ["live", Math.max(300, (bootDelay() + 1.2) * 1000 - performance.now())],
       ringing: ["missed", 12000],
       missed: ["live", 3500],
     };
@@ -58,6 +61,13 @@ export function LiveIsland() {
       className={`absolute left-1/2 top-2.5 z-10 -translate-x-1/2 overflow-hidden bg-black text-white transition-[width,height,border-radius] duration-500 ease-[cubic-bezier(0.34,1.4,0.64,1)] motion-reduce:transition-none ${sizes[mode]}`}
     >
       <AnimatePresence mode="wait" initial={false}>
+        {mode === "boot" && (
+          <motion.div key="boot" aria-hidden {...fade} className="flex h-full w-full items-center gap-1.5 px-2.5">
+            <Command weight="bold" className="h-2.5 w-2.5 shrink-0 md:h-3 md:w-3" />
+            <span className="island-boot-bar flex-1" />
+          </motion.div>
+        )}
+
         {mode === "live" && (
           <motion.button
             key="live"

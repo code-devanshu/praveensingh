@@ -52,7 +52,7 @@ export function MenuBar() {
           }}
           className="-ml-1.5 flex h-6 w-7 items-center justify-center rounded-md transition-colors hover:bg-black/10 dark:hover:bg-white/15"
         >
-          <Command size={15} weight="bold" aria-hidden />
+          <Command size={15} weight="bold" aria-hidden className="boot-cmd" />
         </button>
         <a href="#top" className="whitespace-nowrap font-semibold">
           {site.name}
@@ -93,6 +93,8 @@ export function MenuBar() {
           {time}
         </time>
       </div>
+      {/* The boot: fills on a first load, then fades (globals.css). */}
+      <span aria-hidden className="boot-line" />
     </header>
   );
 }

@@ -7,6 +7,7 @@ import {
   currentWallpaper,
   openSpotlight,
   openWindow,
+  restart,
   setWallpaper,
   wallpapers,
   type WallpaperId,
@@ -27,7 +28,7 @@ export function DesktopMenu() {
   useEffect(() => {
     const show = (p: Point) => {
       setWallpaperState(currentWallpaper());
-      setAt({ x: Math.min(p.x, window.innerWidth - WIDTH - 8), y: Math.min(p.y, window.innerHeight - 340) });
+      setAt({ x: Math.min(p.x, window.innerWidth - WIDTH - 8), y: Math.min(p.y, window.innerHeight - 380) });
     };
     const onContext = (e: MouseEvent) => {
       // Only the bare desktop: windows, links and fields keep the browser menu.
@@ -130,6 +131,11 @@ export function DesktopMenu() {
               {wallpaper === w.id && <Check size={14} weight="bold" className="ml-auto" aria-hidden />}
             </button>
           ))}
+          <div role="separator" className="mx-2.5 my-1 h-px bg-text/15" />
+          {/* Replays the full boot screen. */}
+          <button role="menuitem" className={item} onClick={act(restart)}>
+            Restart…
+          </button>
         </motion.div>
       )}
     </AnimatePresence>

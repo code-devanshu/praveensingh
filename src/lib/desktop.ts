@@ -38,11 +38,24 @@ export function openMenu(x: number, y: number) {
   window.dispatchEvent(new CustomEvent("mac:menu", { detail: { x, y } }));
 }
 
-// Runs before first paint (see layout.tsx): skips the boot screen after the
-// first load in a tab, and applies the saved wallpaper without a flash.
-export const bootScript = `try{var d=document.documentElement;if(sessionStorage.getItem("booted")||matchMedia("(prefers-reduced-motion: reduce)").matches)d.classList.add("booted");sessionStorage.setItem("booted","1");var w=localStorage.getItem("wallpaper");if(w)d.dataset.wallpaper=w}catch(e){}`;
+// Runs before first paint (see layout.tsx). The first load in a tab plays a
+// short boot that never covers the page (a progress line under the menu bar);
+// later loads and reduced motion skip it (.booted). "Restart…" in the desktop
+// menu reloads with the full boot screen (.restarting). Also applies the saved
+// wallpaper without a flash.
+export const bootScript = `try{var d=document.documentElement,s=sessionStorage,r=matchMedia("(prefers-reduced-motion: reduce)").matches;if(s.getItem("restart")&&!r)d.classList.add("restarting");else if(r||s.getItem("booted"))d.classList.add("booted");s.removeItem("restart");s.setItem("booted","1");var w=localStorage.getItem("wallpaper");if(w)d.dataset.wallpaper=w}catch(e){}`;
 
-// Seconds to hold entrance animations while the boot screen is still up.
+// Seconds to hold entrance animations while the boot screen is up, which is
+// only after "Restart…".
 export function bootDelay() {
-  return typeof document !== "undefined" && !document.documentElement.classList.contains("booted") ? 1.4 : 0;
+  return typeof document !== "undefined" && document.documentElement.classList.contains("restarting") ? 1.4 : 0;
+}
+
+// Reloads the page at the top with the full boot screen, like restarting a Mac.
+export function restart() {
+  try {
+    sessionStorage.setItem("restart", "1");
+  } catch {}
+  window.scrollTo({ top: 0, behavior: "instant" });
+  location.replace(location.pathname + location.search);
 }
