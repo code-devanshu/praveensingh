@@ -231,8 +231,7 @@ body {
 
   /*
    * Traffic lights with a Liquid Glass look: a lit dome over the colour and
-   * a darker rim. Pressing a real one squeezes it; letting go bounces it
-   * back. The dots on code blocks are decoration, so they don't move.
+   * a darker rim. Pressing one squeezes it; letting go bounces it back.
    */
   .light {
     background:
@@ -806,6 +805,71 @@ body {
 
 .code-figure [data-line] {
   padding: 0 1.125rem;
+}
+
+/* Minimised: the bar alone, without a second line under it. */
+.code-figure[data-minimised] .code-bar {
+  border-bottom-color: transparent;
+}
+
+/* What's left of a closed code block. */
+.code-closed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 1.75em 0;
+  border: 1px dashed color-mix(in oklab, var(--text) 25%, transparent);
+  border-radius: 12px;
+  padding: 0.4rem 0.5rem 0.4rem 1rem;
+  font-size: 0.875rem;
+  color: color-mix(in oklab, var(--text) 80%, transparent);
+}
+
+/* The green button: the code, large, in a modal dialog over the page. */
+.code-zoom {
+  width: min(72rem, calc(100vw - 2rem));
+  max-width: none;
+  max-height: calc(100dvh - 4rem);
+  margin: auto;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text);
+  overflow: visible;
+}
+
+.code-zoom::backdrop {
+  background: rgb(0 0 0 / 0.35);
+  backdrop-filter: blur(6px);
+}
+
+.code-zoom .code-figure {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 4rem);
+  margin: 0;
+  box-shadow: 0 36px 80px -16px rgb(0 0 0 / 0.5);
+}
+
+.code-zoom pre {
+  min-height: 0;
+  overflow: auto;
+  font-size: 0.875rem;
+}
+
+/* Long lines wrap here, so nothing scrolls sideways, even on a phone. */
+.code-zoom code {
+  min-width: 0;
+}
+
+.code-zoom [data-line] {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+html:has(.code-zoom[open]) {
+  overflow: hidden;
 }
 
 .code-figure [data-highlighted-line] {
