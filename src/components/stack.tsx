@@ -20,7 +20,7 @@ export function Stack() {
             return (
               <li key={label} className="flex flex-col items-center gap-2 text-center">
                 <span
-                  className="flex h-14 w-14 items-center justify-center rounded-[22.5%] shadow-[inset_0_1px_0_rgb(255_255_255/0.35),0_4px_12px_rgb(0_0_0/0.15)] md:h-16 md:w-16"
+                  className="icon-glass flex h-14 w-14 items-center justify-center rounded-[22.5%] md:h-16 md:w-16"
                   style={{ backgroundColor: `#${hex}` }}
                 >
                   <svg aria-hidden viewBox="0 0 24 24" className="h-7 w-7 md:h-8 md:w-8" fill={glyphColour(hex)}>

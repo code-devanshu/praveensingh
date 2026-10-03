@@ -3,7 +3,21 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ArrowRight, ArrowUpRight, BluetoothConnected, ContactlessPayment, CreditCard, Info } from "@phosphor-icons/react";
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Bank,
+  BluetoothConnected,
+  CellTower,
+  ClipboardText,
+  ContactlessPayment,
+  Cpu,
+  CreditCard,
+  GraduationCap,
+  Info,
+  SquaresFour,
+  type Icon,
+} from "@phosphor-icons/react";
 import { projects, type Project } from "@/content";
 import { Phone } from "./phone";
 import { Lightbox, ScreenshotStrip, StoreList } from "./store-apps";
@@ -14,6 +28,16 @@ const filters = ["All", ...new Set(projects.map((p) => p.domain))];
 type Filter = string;
 
 const matches = (project: Project, filter: Filter) => filter === "All" || project.domain === filter;
+
+// Sidebar icons, tinted only while the window is active (.sidebar-icon).
+const filterIcons: Record<string, Icon> = {
+  All: SquaresFour,
+  Edtech: GraduationCap,
+  Fintech: Bank,
+  Operations: ClipboardText,
+  Telecom: CellTower,
+  "IoT and Commerce": Cpu,
+};
 
 // Corner tags on a card's image area ("Retired", "Illustration").
 const tag =
@@ -139,7 +163,7 @@ function ProjectCard({ project }: { project: Project }) {
   const app = project.apps?.[active];
 
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-hairline bg-surface-2">
+    <article className="flex h-full flex-col overflow-hidden rounded-xl border border-hairline bg-surface-2">
       <div className="relative flex h-60 justify-center overflow-hidden bg-[linear-gradient(160deg,var(--accent-soft),transparent_75%)]">
         {app ? (
           <ScreenshotStrip key={app.name} app={app} onOpen={setViewing} />
@@ -184,7 +208,7 @@ function ProjectCard({ project }: { project: Project }) {
           <ArrowRight size={14} weight="bold" aria-hidden />
         </Link>
         {project.capabilities && (
-          <ul className="mt-5 divide-y divide-hairline rounded-2xl bg-surface-2">
+          <ul className="mt-5 divide-y divide-hairline rounded-xl bg-surface-2">
             {project.capabilities.map(({ icon, title, body }) => {
               const Icon = capabilityIcons[icon];
               return (
@@ -208,7 +232,7 @@ function ProjectCard({ project }: { project: Project }) {
         {project.metrics && (
           <dl className="mt-5 grid grid-cols-2 gap-2">
             {project.metrics.map((m) => (
-              <div key={m.label} className="rounded-2xl bg-surface-2 px-3.5 py-3">
+              <div key={m.label} className="rounded-xl bg-surface-2 px-3.5 py-3">
                 <dt className="text-xs text-muted">{m.label}</dt>
                 <dd className="mt-1 flex flex-wrap items-baseline gap-x-2">
                   <span className="text-2xl font-semibold tracking-tight text-accent tabular-nums">{m.change}</span>
@@ -238,25 +262,29 @@ export function Work() {
   const reduce = useReducedMotion();
   const shown = projects.filter((p) => matches(p, filter));
 
-  const filterButton = (f: Filter, className: string) => (
-    <button
-      key={f}
-      type="button"
-      aria-pressed={filter === f}
-      onClick={() => setFilter(f)}
-      className={className}
-    >
-      {f}
-      <span className="ml-auto pl-3 text-xs tabular-nums text-muted">
-        {projects.filter((p) => matches(p, f)).length}
-      </span>
-    </button>
-  );
+  const filterButton = (f: Filter, className: string) => {
+    const FilterIcon = filterIcons[f] ?? SquaresFour;
+    return (
+      <button
+        key={f}
+        type="button"
+        aria-pressed={filter === f}
+        onClick={() => setFilter(f)}
+        className={className}
+      >
+        <FilterIcon size={17} aria-hidden className="sidebar-icon mr-2 shrink-0" />
+        {f}
+        <span className="ml-auto pl-3 text-xs tabular-nums text-muted">
+          {projects.filter((p) => matches(p, f)).length}
+        </span>
+      </button>
+    );
+  };
 
   return (
     <Window id="work" title="Selected Work">
       <div className="flex">
-        <aside className="hidden w-52 shrink-0 border-r border-hairline bg-surface-2/60 p-3 md:block">
+        <aside className="sidebar hidden w-52 shrink-0 border-r border-hairline p-3 md:block">
           <p className="px-2 pb-1.5 pt-2 text-[11px] font-semibold text-muted">Industries</p>
           <div className="flex flex-col gap-0.5">
             {filters.map((f) =>
@@ -280,7 +308,7 @@ export function Work() {
               {filters.map((f) =>
                 filterButton(
                   f,
-                  "flex items-center justify-center whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors aria-pressed:bg-surface aria-pressed:shadow-sm [&>span]:hidden",
+                  "flex items-center justify-center whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors aria-pressed:bg-surface aria-pressed:shadow-sm [&>span]:hidden [&>svg]:hidden",
                 ),
               )}
             </div>

@@ -156,7 +156,7 @@ function DockIcon({ app, mouseX, running, className = "" }: DockIconProps) {
           {/* The face is clipped to the squircle; the hover label below isn't. */}
           <span
             aria-hidden
-            className={`@container absolute inset-0 flex items-center justify-center overflow-hidden rounded-[inherit] bg-linear-to-b shadow-[inset_0_1px_0_rgb(255_255_255/0.55),inset_0_-1px_0_rgb(0_0_0/0.18),inset_0_0_0_0.5px_rgb(0_0_0/0.15)] ${app.tile}`}
+            className={`@container absolute inset-0 flex items-center justify-center overflow-hidden rounded-[inherit] bg-linear-to-b shadow-[inset_0_1px_0_rgb(255_255_255/0.75),inset_0_-1.5px_2px_rgb(0_0_0/0.2),inset_0_0_0_0.5px_rgb(0_0_0/0.25)] ${app.tile}`}
           >
             {app.art ? (
               <TileArt art={app.art} />
@@ -168,9 +168,10 @@ function DockIcon({ app, mouseX, running, className = "" }: DockIconProps) {
                 }`}
               />
             )}
-            {/* Glass: a bright arc across the top, a little shade at the bottom. */}
-            <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(130%_75%_at_50%_-18%,rgb(255_255_255/0.42),rgb(255_255_255/0)_62%)]" />
-            <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgb(0_0_0/0)_60%,rgb(0_0_0/0.1))]" />
+            {/* Liquid Glass, macOS 27 style: a brighter arc across the top, a
+                darker edge and a little shade at the bottom. */}
+            <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(130%_75%_at_50%_-18%,rgb(255_255_255/0.55),rgb(255_255_255/0)_62%)]" />
+            <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgb(0_0_0/0)_55%,rgb(0_0_0/0.14))]" />
           </span>
           <span
             aria-hidden

@@ -15,6 +15,7 @@ import {
   DeviceMobile,
   ChatCircleText,
   DownloadSimple,
+  DropHalf,
   EnvelopeSimple,
   FilePdf,
   GithubLogo,
@@ -32,7 +33,7 @@ import {
   type Icon,
 } from "@phosphor-icons/react";
 import { projects, site } from "@/content";
-import { openWindow, setWallpaper, wallpapers } from "@/lib/desktop";
+import { glassPresets, openWindow, setGlass, setWallpaper, wallpapers } from "@/lib/desktop";
 import { getDev, openDevMenu, reload, setDev } from "@/lib/dev";
 
 type Item = { group: string; label: string; hint?: string; keywords?: string; Icon: Icon } & (
@@ -94,6 +95,13 @@ const items: Item[] = [
     keywords: "background desktop theme",
     Icon: ImageIcon,
     run: () => setWallpaper(w.id),
+  })),
+  ...glassPresets.map((p) => ({
+    group: "Actions",
+    label: `Liquid Glass: ${p.label}`,
+    keywords: "appearance transparency opacity tint clear macos 27",
+    Icon: DropHalf,
+    run: () => setGlass(p.value),
   })),
   { group: "Developer", label: "React Native Dev Menu", keywords: "debug developer tools metro", Icon: Atom, run: openDevMenu },
   { group: "Developer", label: "Perf Monitor", hint: "Toggle", keywords: "fps performance frame rate react native", Icon: Gauge, run: () => setDev({ perf: !getDev().perf }) },
@@ -207,7 +215,7 @@ export function Spotlight({ posts = [] }: SpotlightProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={reduce ? undefined : { opacity: 0, scale: 0.97 }}
             transition={{ type: "spring", stiffness: 420, damping: 32 }}
-            className="glass w-full max-w-[640px] overflow-hidden rounded-[22px] bg-surface/80"
+            className="glass glass-thick w-full max-w-[640px] overflow-hidden rounded-[22px]"
           >
             <div className="flex items-center gap-3 px-5">
               <MagnifyingGlass size={24} className="shrink-0 text-muted" aria-hidden />

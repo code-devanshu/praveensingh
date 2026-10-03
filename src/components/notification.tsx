@@ -46,7 +46,7 @@ export function Notification() {
             onDragEnd={(_, info) => {
               if (info.offset.x > 80) setOpen(false);
             }}
-            className="group glass pointer-events-auto relative w-full max-w-[360px] rounded-[22px] bg-surface/75"
+            className="group glass glass-thick pointer-events-auto relative w-full max-w-[360px] rounded-[22px]"
           >
             <button
               type="button"

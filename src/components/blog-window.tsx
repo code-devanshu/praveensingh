@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight } from "@phosphor-icons/react/ssr";
+import { ArrowRight, Folder } from "@phosphor-icons/react/ssr";
 import { formatDate, type Post } from "@/blog";
 import { Window } from "./window";
 
@@ -12,8 +12,12 @@ export function BlogWindow({ posts, className }: { posts: Post[]; className?: st
   return (
     <Window id="blog" title="Notes" className={className}>
       <div className="flex flex-col md:flex-row">
-        <aside className="border-b border-hairline bg-surface-2/60 p-3 md:w-64 md:shrink-0 md:border-b-0 md:border-r">
-          <p className="px-2 pb-1.5 pt-1 text-[11px] font-semibold text-muted">Latest posts</p>
+        <aside className="sidebar border-b border-hairline p-3 md:w-64 md:shrink-0 md:border-b-0 md:border-r">
+          <p className="flex items-center gap-1.5 px-2 pb-1.5 pt-1 text-[11px] font-semibold text-muted">
+            {/* Notes' folders are yellow; grey when the window isn't active. */}
+            <Folder size={14} weight="fill" aria-hidden className="sidebar-icon [--tint:#e8a600] dark:[--tint:#ffd60a]" />
+            Latest posts
+          </p>
           <ul className="flex flex-col gap-0.5">
             {posts.slice(0, 4).map((post, i) => (
               <li key={post.slug}>

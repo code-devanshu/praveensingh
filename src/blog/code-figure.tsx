@@ -22,9 +22,9 @@ export function CodeFigure({ children, ...props }: React.ComponentProps<"figure"
     <figure {...props} ref={ref} className="code-figure not-prose">
       <div className="code-bar">
         <span aria-hidden className="flex gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
-          <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
-          <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
+          <span className="light light-close h-2.5 w-2.5 rounded-full" />
+          <span className="light light-minimise h-2.5 w-2.5 rounded-full" />
+          <span className="light light-zoom h-2.5 w-2.5 rounded-full" />
         </span>
         <button type="button" onClick={copy} aria-label={copied ? "Copied" : "Copy code"} className="code-copy">
           {copied ? <Check size={14} weight="bold" aria-hidden /> : <Copy size={14} aria-hidden />}

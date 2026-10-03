@@ -25,13 +25,18 @@ const [regular, semibold, upgrad, delightree, photo] = await Promise.all([
   png("photo.png"),
 ]);
 
-// Same colours as the "Bloom" wallpaper and light theme in globals.css. Each
-// fades to its own colour at zero alpha: plain `transparent` renders as grey here.
+// The "Golden Gate" wallpaper in globals.css (light theme), simplified: folds
+// as ellipse edges, lit inside and shadowed outside, over a gold-to-indigo
+// sweep. Each fades to its own colour at zero alpha: plain `transparent`
+// renders as grey here.
+const fold = (shape: string, inside: string) =>
+  `radial-gradient(${shape}, ${inside} 0%, ${inside} 78%, rgba(255,252,244,0.5) 93%, rgba(70,52,40,0.22) 94%, rgba(70,52,40,0) 100%)`;
 const wallpaper = [
-  "radial-gradient(55% 45% at 18% 12%, rgba(127,178,255,0.9), rgba(127,178,255,0) 70%)",
-  "radial-gradient(45% 40% at 88% 8%, rgba(201,179,255,0.85), rgba(201,179,255,0) 70%)",
-  "radial-gradient(60% 50% at 82% 88%, rgba(255,195,160,0.85), rgba(255,195,160,0) 70%)",
-  "radial-gradient(55% 50% at 8% 92%, rgba(159,227,214,0.8), rgba(159,227,214,0) 70%)",
+  fold("ellipse 62% 112% at 0% 100%", "rgba(255,204,120,0.2)"),
+  fold("ellipse 56% 104% at 100% 0%", "rgba(70,80,170,0.16)"),
+  fold("ellipse 88% 146% at 0% 100%", "rgba(255,204,120,0)"),
+  fold("ellipse 84% 136% at 100% 0%", "rgba(70,80,170,0)"),
+  "linear-gradient(105deg, #e2b871 0%, #ead3a8 24%, #e2d9cc 42%, #c4c3d2 62%, #8a8fc0 82%, #545ca0 100%)",
 ].join(", ");
 
 function Screen({ src, width, height, style }: { src: string; width: number; height: number; style: React.CSSProperties }) {
@@ -60,7 +65,7 @@ export default function Image() {
           display: "flex",
           width: "100%",
           height: "100%",
-          backgroundColor: "#dde3f0",
+          backgroundColor: "#e6dccb",
           backgroundImage: wallpaper,
           fontFamily: "Geist",
           color: "#1d1d1f",
@@ -76,7 +81,7 @@ export default function Image() {
             height: 460,
             display: "flex",
             flexDirection: "column",
-            borderRadius: 28,
+            borderRadius: 20,
             backgroundColor: "rgba(251,251,253,0.94)",
             boxShadow: "0 0 0 1px rgba(0,0,0,0.08), 0 40px 80px -24px rgba(15,23,42,0.45)",
           }}

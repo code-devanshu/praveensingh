@@ -72,7 +72,7 @@ export function StoreList({ apps, active, onSelect }: ListProps) {
 
   return (
     <div className="mt-5">
-      <ul className="divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline">
+      <ul className="divide-y divide-hairline overflow-hidden rounded-xl border border-hairline">
         {apps.map((app, i) => {
           const identity = (
             <>

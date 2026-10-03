@@ -16,7 +16,7 @@ type Glance = {
 /** The post in five seconds: problem, fix and the headline number. */
 export function AtAGlance({ problem, fix, result, resultLabel }: Glance) {
   return (
-    <aside aria-label="At a glance" className="not-prose my-8 rounded-2xl bg-surface-2 p-5">
+    <aside aria-label="At a glance" className="not-prose my-8 rounded-xl bg-surface-2 p-5">
       <p className="text-xs font-medium uppercase tracking-[0.18em] text-accent">At a glance</p>
       <dl className="mt-3 grid gap-4 sm:grid-cols-3">
         <div>
@@ -52,7 +52,7 @@ export function ShortAnswer({ children }: { children: React.ReactNode }) {
 /** Something that bit me, and how to avoid it. */
 export function Gotcha({ title = "Gotcha", children }: { title?: string; children: React.ReactNode }) {
   return (
-    <div role="note" className="not-prose my-6 rounded-2xl bg-[#ff9f0a]/12 p-4 text-[0.9375rem] leading-relaxed">
+    <div role="note" className="not-prose my-6 rounded-xl bg-[#ff9f0a]/12 p-4 text-[0.9375rem] leading-relaxed">
       <p className="flex items-center gap-1.5 font-semibold text-[#b25000] dark:text-[#ffb340]">
         <Warning size={18} weight="bold" aria-hidden />
         {title}
@@ -65,7 +65,7 @@ export function Gotcha({ title = "Gotcha", children }: { title?: string; childre
 /** A neutral aside: context, a caveat or how something was measured. */
 export function Note({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
-    <div role="note" className="not-prose my-6 rounded-2xl bg-surface-2 p-4 text-[0.9375rem] leading-relaxed">
+    <div role="note" className="not-prose my-6 rounded-xl bg-surface-2 p-4 text-[0.9375rem] leading-relaxed">
       {title && (
         <p className="flex items-center gap-1.5 font-semibold">
           <Info size={18} weight="bold" aria-hidden className="text-accent" />
@@ -80,7 +80,7 @@ export function Note({ title, children }: { title?: string; children: React.Reac
 /** The takeaways as a Reminders-style checklist. */
 export function Takeaways({ items }: { items: string[] }) {
   return (
-    <ul className="not-prose my-6 divide-y divide-hairline rounded-2xl bg-surface-2 px-4">
+    <ul className="not-prose my-6 divide-y divide-hairline rounded-xl bg-surface-2 px-4">
       {items.map((item) => (
         <li key={item} className="flex gap-3 py-3 leading-snug">
           <CheckCircle size={22} weight="fill" aria-hidden className="mt-px shrink-0 text-accent" />

@@ -101,7 +101,7 @@ function DevMenu() {
             transition={{ type: "spring", stiffness: 420, damping: 36 }}
             className="w-full max-w-[400px] md:max-w-[300px]"
           >
-            <div className="glass overflow-hidden rounded-[14px] bg-surface/80">
+            <div className="glass glass-thick overflow-hidden rounded-[14px]">
               <div className="border-b border-hairline px-4 py-3.5 text-center">
                 <h2 id="dev-menu-title" className="text-[13px] font-semibold text-muted">
                   React Native Dev Menu
@@ -122,7 +122,7 @@ function DevMenu() {
                 ))}
               </ul>
             </div>
-            <div className="glass mt-2 overflow-hidden rounded-[14px] bg-surface/90">
+            <div className="glass glass-thick mt-2 overflow-hidden rounded-[14px]">
               <button type="button" onClick={() => setDev({ menu: false })} className={`${row} font-semibold text-accent`}>
                 Cancel
               </button>

@@ -91,7 +91,7 @@ export default async function CaseStudy({ params }: PageProps<"/work/[slug]">) {
         <h1 className="mt-3 text-4xl font-semibold tracking-tighter md:text-5xl">{project.name}</h1>
         <p className="mt-4 max-w-[62ch] text-lg leading-relaxed text-muted">{project.summary}</p>
 
-        <dl className="mt-8 grid grid-cols-1 gap-x-6 gap-y-3 rounded-2xl bg-surface-2 p-5 text-sm sm:grid-cols-2">
+        <dl className="mt-8 grid grid-cols-1 gap-x-6 gap-y-3 rounded-xl bg-surface-2 p-5 text-sm sm:grid-cols-2">
           {facts.map((f) => (
             <div key={f.label}>
               <dt className="text-muted">{f.label}</dt>
@@ -132,7 +132,7 @@ export default async function CaseStudy({ params }: PageProps<"/work/[slug]">) {
                 {project.capabilities.map(({ icon, title, body }) => {
                   const Icon = capabilityIcons[icon];
                   return (
-                    <li key={title} className="rounded-2xl bg-surface-2 p-4">
+                    <li key={title} className="rounded-xl bg-surface-2 p-4">
                       <Icon size={24} weight="duotone" aria-hidden className="text-accent" />
                       <h3 className="mt-2 font-semibold">{title}</h3>
                       <p className="mt-1 text-sm leading-snug text-muted">{body}</p>
@@ -150,7 +150,7 @@ export default async function CaseStudy({ params }: PageProps<"/work/[slug]">) {
             <p className="mt-3 text-muted">From release builds and production telemetry.</p>
             <dl className="mt-4 grid gap-3 sm:grid-cols-2">
               {project.metrics.map((m) => (
-                <div key={m.label} className="rounded-2xl bg-surface-2 px-5 py-4">
+                <div key={m.label} className="rounded-xl bg-surface-2 px-5 py-4">
                   <dt className="text-sm text-muted">{m.label}</dt>
                   <dd className="mt-1 flex flex-wrap items-baseline gap-x-3">
                     <span className="text-3xl font-semibold tracking-tight text-accent tabular-nums">{m.change}</span>
@@ -178,7 +178,7 @@ export default async function CaseStudy({ params }: PageProps<"/work/[slug]">) {
           </section>
         )}
 
-        <section className="mt-14 rounded-2xl bg-accent-soft p-6 md:p-8">
+        <section className="mt-14 rounded-xl bg-accent-soft p-6 md:p-8">
           <h2 className="text-2xl font-semibold tracking-tight">Building something similar?</h2>
           <p className="mt-2 text-muted">
             {site.name} is open to Senior React Native roles and consulting, and can start immediately.

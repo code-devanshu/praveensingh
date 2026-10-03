@@ -169,7 +169,7 @@ export default async function PostPage({ params }: PageProps<"/blog/[slug]">) {
             ))}
           </ul>
 
-          <div className="flex flex-col gap-4 rounded-2xl bg-surface-2 p-5 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-4 rounded-xl bg-surface-2 p-5 sm:flex-row sm:items-center">
             <Avatar size={56} className="shrink-0" />
             <div className="flex-1">
               <p className="font-semibold">Written by {site.name}</p>
@@ -192,7 +192,7 @@ export default async function PostPage({ params }: PageProps<"/blog/[slug]">) {
               <ul className="mt-3 grid gap-3 sm:grid-cols-2">
                 {related.map((p) => (
                   <li key={p.slug}>
-                    <Link href={`/blog/${p.slug}`} className="block rounded-2xl border border-hairline p-4 transition-colors hover:bg-surface-2">
+                    <Link href={`/blog/${p.slug}`} className="block rounded-xl border border-hairline p-4 transition-colors hover:bg-surface-2">
                       <span className="block font-medium leading-snug">{p.title}</span>
                       <span className="mt-1 block text-sm text-muted">{p.readingMinutes} min read</span>
                     </Link>

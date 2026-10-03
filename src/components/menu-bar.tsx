@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { Atom, BatteryHigh, Command, MagnifyingGlass, WifiHigh } from "@phosphor-icons/react";
+import { Atom, Command, MagnifyingGlass, WifiHigh } from "@phosphor-icons/react";
 import { site } from "@/content";
 import { openMenu, openSpotlight } from "@/lib/desktop";
 import { openDevMenu } from "@/lib/dev";
@@ -36,11 +36,23 @@ function useNow() {
   );
 }
 
+// The iPhone-style battery macOS 27 brought to the menu bar: a filled
+// capsule with the charge level in solid colour, and a small cap.
+function Battery() {
+  return (
+    <svg width="25" height="12" viewBox="0 0 25 12" fill="currentColor" aria-hidden>
+      <rect width="22" height="12" rx="4" opacity="0.35" />
+      <path d="M4 0h12v12H4a4 4 0 0 1-4-4V4a4 4 0 0 1 4-4Z" />
+      <path d="M23.2 4.2c.8.3 1.3 1 1.3 1.8s-.5 1.5-1.3 1.8V4.2Z" opacity="0.4" />
+    </svg>
+  );
+}
+
 export function MenuBar() {
   const [date, time] = useNow().split("|");
 
   return (
-    <header className="fixed inset-x-0 top-0 z-40 flex h-8 items-center justify-between gap-4 bg-white/40 px-4 text-[13px] backdrop-blur-xl backdrop-saturate-150 dark:bg-black/35">
+    <header className="menubar fixed inset-x-0 top-0 z-40 flex h-8 items-center justify-between gap-4 px-4 text-[13px]">
       <nav aria-label="Sections" className="flex items-center gap-3">
         <button
           type="button"
@@ -87,7 +99,7 @@ export function MenuBar() {
           <MagnifyingGlass size={15} weight="bold" aria-hidden />
         </button>
         <WifiHigh size={16} weight="bold" aria-hidden />
-        <BatteryHigh size={20} aria-hidden />
+        <Battery />
         <time className="tabular-nums">
           {date && <span className="mr-2 hidden sm:inline">{date}</span>}
           {time}

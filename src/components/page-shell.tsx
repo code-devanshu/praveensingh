@@ -30,7 +30,7 @@ export function PageShell({ title, crumbs, children, wide = false, titleBarExtra
   return (
     <>
       <div aria-hidden className="wallpaper fixed inset-0 -z-10" />
-      <header className="fixed inset-x-0 top-0 z-40 flex h-8 items-center gap-4 bg-white/40 px-4 text-[13px] backdrop-blur-xl backdrop-saturate-150 dark:bg-black/35">
+      <header className="menubar fixed inset-x-0 top-0 z-40 flex h-8 items-center gap-4 px-4 text-[13px]">
         <nav aria-label="Site" className="flex w-full items-center gap-3">
           <Link href="/" className="whitespace-nowrap font-semibold">
             {site.name}
@@ -67,13 +67,14 @@ export function PageShell({ title, crumbs, children, wide = false, titleBarExtra
           </ol>
         </nav>
 
-        <div className="overflow-clip rounded-[22px] bg-surface/90 shadow-[0_0_0_1px_rgb(0_0_0/0.08),0_30px_70px_-20px_rgb(15_23_42/0.45)] backdrop-blur-2xl dark:shadow-[0_0_0_1px_rgb(255_255_255/0.1),0_30px_70px_-20px_rgb(0_0_0/0.7)]">
-          <div className="sticky top-8 z-10 flex h-12 items-center border-b border-hairline bg-surface/95 px-4 backdrop-blur-xl">
+        <div className="window overflow-clip">
+          {/* A frosted toolbar: the page scrolls under it. */}
+          <div className="titlebar sticky top-8 z-10 flex h-12 items-center border-b border-hairline bg-surface/80 px-4 backdrop-blur-xl backdrop-saturate-150">
             {/* Just the look of a window here; nothing to close or drag. */}
             <span aria-hidden className="flex gap-2">
-              <span className="h-3 w-3 rounded-full bg-[#ff5f57] ring-1 ring-black/10 ring-inset" />
-              <span className="h-3 w-3 rounded-full bg-[#febc2e] ring-1 ring-black/10 ring-inset" />
-              <span className="h-3 w-3 rounded-full bg-[#28c840] ring-1 ring-black/10 ring-inset" />
+              <span className="light light-close h-3 w-3 rounded-full" />
+              <span className="light light-minimise h-3 w-3 rounded-full" />
+              <span className="light light-zoom h-3 w-3 rounded-full" />
             </span>
             {/* Decorative like the buttons: the page's own heading names it for screen readers. */}
             <p aria-hidden className="pointer-events-none absolute inset-x-24 truncate text-center text-[13px] font-semibold text-muted">
