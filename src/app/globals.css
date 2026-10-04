@@ -653,6 +653,109 @@ body {
   background: color-mix(in oklab, var(--text) 40%, transparent);
 }
 
+/*
+ * Page changes, through React's <ViewTransition> and the browser's View
+ * Transitions API. React only animates what's wrapped in a <ViewTransition>:
+ *   .window-open / .window-close   a sub-page's content (PageShell): it opens
+ *                                  like a macOS window, zooming up from the
+ *                                  top, where a new page always starts
+ *   .dock-in / .dock-out           the Dock slides down while a document is
+ *                                  open, and back up on the desktop
+ *   .anchor                        the menu bar, shared by every page: held
+ *                                  still, and what starts the transition
+ *   .title-morph                   a post's title, from the blog list into
+ *                                  its heading
+ * Everything else swaps at once: going back, the desktop is simply there
+ * behind the closing window, as on a Mac, and the wallpaper is the same on
+ * every page. Wrapping the desktop's windows too was tried: the whole desktop
+ * captured as an empty snapshot, and nested wrappers never ran.
+ * Browsers without view transitions just switch pages.
+ */
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-old(.window-close) {
+  animation: 140ms ease-out both vt-fade-out;
+}
+
+::view-transition-new(.window-open) {
+  transform-origin: 50% 0;
+  animation: 340ms cubic-bezier(0.2, 0.85, 0.25, 1) both vt-window-open;
+}
+
+::view-transition-old(.dock-out) {
+  animation: 220ms cubic-bezier(0.4, 0, 1, 1) both vt-dock-out;
+}
+
+::view-transition-new(.dock-in) {
+  animation: 380ms cubic-bezier(0.2, 0.9, 0.3, 1.15) 80ms both vt-dock-in;
+}
+
+::view-transition-group(.anchor) {
+  z-index: 100;
+  animation: none;
+}
+
+::view-transition-old(.anchor) {
+  display: none;
+}
+
+::view-transition-new(.anchor) {
+  animation: none;
+}
+
+::view-transition-group(.title-morph) {
+  animation-duration: 380ms;
+  animation-timing-function: cubic-bezier(0.2, 0.85, 0.25, 1);
+}
+
+::view-transition-image-pair(.title-morph) {
+  animation-name: vt-soften;
+}
+
+@keyframes vt-fade-out {
+  to { opacity: 0; }
+}
+
+@keyframes vt-window-open {
+  from { opacity: 0; transform: scale(0.965); }
+}
+
+@keyframes vt-dock-out {
+  to { opacity: 0; transform: translateY(110%); }
+}
+
+@keyframes vt-dock-in {
+  from { opacity: 0; transform: translateY(110%); }
+}
+
+/* Hides the stretch while the title changes size. */
+@keyframes vt-soften {
+  40% { filter: blur(2px); }
+}
+
+/* No zooming, sliding or gliding: short crossfades instead. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-new(.window-open),
+  ::view-transition-new(.dock-in) {
+    animation: 150ms ease-out both vt-fade-in;
+  }
+
+  ::view-transition-old(.dock-out) {
+    animation: 120ms ease-out both vt-fade-out;
+  }
+
+  ::view-transition-group(.title-morph),
+  ::view-transition-image-pair(.title-morph) {
+    animation: none;
+  }
+}
+
+@keyframes vt-fade-in {
+  from { opacity: 0; }
+}
+
 /* Element Inspector: crosshair on the page, normal cursor on its own panel. */
 .inspecting body * {
   cursor: crosshair !important;

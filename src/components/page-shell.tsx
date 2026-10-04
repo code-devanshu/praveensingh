@@ -1,3 +1,4 @@
+import { ViewTransition } from "react";
 import Link from "next/link";
 import { site } from "@/content";
 import { DocumentWindow } from "./document-window";
@@ -35,54 +36,60 @@ export function PageShell({ title, crumbs, children, wide = false, titleBarExtra
   return (
     <>
       <div aria-hidden className="wallpaper fixed inset-0 -z-10" />
-      <header className="menubar fixed inset-x-0 top-0 z-40 flex h-8 items-center gap-4 px-4 text-[13px]">
-        <nav aria-label="Site" className="flex w-full items-center gap-3">
-          <Link href="/" className="whitespace-nowrap font-semibold">
-            {site.name}
-          </Link>
-          <ul className="ml-auto flex items-center gap-3 sm:ml-2 sm:gap-5">
-            {links.map((link) => (
-              <li key={link.href}>
-                <Link href={link.href} className="rounded px-1 py-0.5 transition-colors hover:bg-black/10 dark:hover:bg-white/15">
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      </header>
-
-      <main className={`mx-auto flex w-full ${wide ? "max-w-5xl" : "max-w-4xl"} flex-1 flex-col gap-6 px-3 pb-16 pt-12 md:px-6 md:pt-16`}>
-        <nav aria-label="Breadcrumb" className="glass self-start rounded-full px-4 py-1.5 text-[13px]">
-          <ol className="flex flex-wrap items-center gap-1.5">
-            {crumbs.map((crumb, i) => (
-              <li key={crumb.path} className="flex min-w-0 items-center gap-1.5">
-                {i > 0 && <span aria-hidden className="text-muted">/</span>}
-                {i === crumbs.length - 1 ? (
-                  <span aria-current="page" className="block max-w-[13rem] truncate font-medium sm:max-w-md">
-                    {crumb.name}
-                  </span>
-                ) : (
-                  <Link href={crumb.path} className="text-muted hover:text-accent">
-                    {crumb.name}
+      {/* Shared with the desktop's menu bar, so page changes animate (globals.css, "Page changes"). */}
+      <ViewTransition name="menubar" share="anchor" default="none">
+        <header className="menubar fixed inset-x-0 top-0 z-40 flex h-8 items-center gap-4 px-4 text-[13px]">
+          <nav aria-label="Site" className="flex w-full items-center gap-3">
+            <Link href="/" className="whitespace-nowrap font-semibold">
+              {site.name}
+            </Link>
+            <ul className="ml-auto flex items-center gap-3 sm:ml-2 sm:gap-5">
+              {links.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href} className="rounded px-1 py-0.5 transition-colors hover:bg-black/10 dark:hover:bg-white/15">
+                    {link.label}
                   </Link>
-                )}
-              </li>
-            ))}
-          </ol>
-        </nav>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </header>
+      </ViewTransition>
 
-        <DocumentWindow
-          title={title}
-          closeHref={parent.path}
-          closeName={parent.name}
-          titleBarExtra={titleBarExtra}
-        >
-          {children}
-        </DocumentWindow>
+      {/* Opens like a macOS window when you arrive (globals.css, "Page changes"). */}
+      <ViewTransition enter="window-open" exit="window-close" default="none">
+        <main className={`mx-auto flex w-full ${wide ? "max-w-5xl" : "max-w-4xl"} flex-1 flex-col gap-6 px-3 pb-16 pt-12 md:px-6 md:pt-16`}>
+          <nav aria-label="Breadcrumb" className="glass self-start rounded-full px-4 py-1.5 text-[13px]">
+            <ol className="flex flex-wrap items-center gap-1.5">
+              {crumbs.map((crumb, i) => (
+                <li key={crumb.path} className="flex min-w-0 items-center gap-1.5">
+                  {i > 0 && <span aria-hidden className="text-muted">/</span>}
+                  {i === crumbs.length - 1 ? (
+                    <span aria-current="page" className="block max-w-[13rem] truncate font-medium sm:max-w-md">
+                      {crumb.name}
+                    </span>
+                  ) : (
+                    <Link href={crumb.path} className="text-muted hover:text-accent">
+                      {crumb.name}
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </nav>
 
-        <SiteFooter />
-      </main>
+          <DocumentWindow
+            title={title}
+            closeHref={parent.path}
+            closeName={parent.name}
+            titleBarExtra={titleBarExtra}
+          >
+            {children}
+          </DocumentWindow>
+
+          <SiteFooter section={crumbs[1]?.path} />
+        </main>
+      </ViewTransition>
       <Effects />
     </>
   );

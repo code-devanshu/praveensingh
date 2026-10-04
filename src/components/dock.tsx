@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, ViewTransition } from "react";
 import {
   motion,
   useAnimate,
@@ -196,28 +196,31 @@ export function Dock({ blog = false }: { blog?: boolean }) {
   const active = useActiveSection();
 
   return (
-    <nav aria-label="Dock" className="fixed inset-x-0 bottom-3 z-40 flex justify-center px-3">
-      <ul
-        onPointerMove={(e) => {
-          if (e.pointerType === "mouse" && !reduce) mouseX.set(e.clientX);
-        }}
-        onPointerLeave={() => mouseX.set(Infinity)}
-        className="glass flex h-[62px] items-end gap-2 rounded-[22px] px-2 pb-2.5 md:h-[70px] md:gap-2.5"
-      >
-        {apps.filter((app) => blog || app.section !== "blog").map((app) => (
-          <DockIcon
-            key={app.label}
-            app={app}
-            mouseX={mouseX}
-            running={active === app.section}
-            className={app.wideOnly ? "hidden sm:flex" : ""}
-          />
-        ))}
-        <li aria-hidden className="mx-1 hidden h-11 w-px self-center bg-text/20 sm:block md:h-12" />
-        {links.map((app) => (
-          <DockIcon key={app.label} app={app} mouseX={mouseX} running={false} className="hidden sm:flex" />
-        ))}
-      </ul>
-    </nav>
+    // Slides away when a document page opens, and back up on the desktop (globals.css, "Page changes").
+    <ViewTransition enter="dock-in" exit="dock-out" default="none">
+      <nav aria-label="Dock" className="fixed inset-x-0 bottom-3 z-40 flex justify-center px-3">
+        <ul
+          onPointerMove={(e) => {
+            if (e.pointerType === "mouse" && !reduce) mouseX.set(e.clientX);
+          }}
+          onPointerLeave={() => mouseX.set(Infinity)}
+          className="glass flex h-[62px] items-end gap-2 rounded-[22px] px-2 pb-2.5 md:h-[70px] md:gap-2.5"
+        >
+          {apps.filter((app) => blog || app.section !== "blog").map((app) => (
+            <DockIcon
+              key={app.label}
+              app={app}
+              mouseX={mouseX}
+              running={active === app.section}
+              className={app.wideOnly ? "hidden sm:flex" : ""}
+            />
+          ))}
+          <li aria-hidden className="mx-1 hidden h-11 w-px self-center bg-text/20 sm:block md:h-12" />
+          {links.map((app) => (
+            <DockIcon key={app.label} app={app} mouseX={mouseX} running={false} className="hidden sm:flex" />
+          ))}
+        </ul>
+      </nav>
+    </ViewTransition>
   );
 }

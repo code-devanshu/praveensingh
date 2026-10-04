@@ -1,3 +1,4 @@
+import { ViewTransition } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -114,7 +115,9 @@ export default async function PostPage({ params }: PageProps<"/blog/[slug]">) {
               Draft: visible in development only
             </p>
           )}
-          <h1 className="text-[2rem] font-semibold leading-[1.15] tracking-tighter md:text-5xl">{post.title}</h1>
+          <ViewTransition name={`post-title-${post.slug}`} share="title-morph" default="none">
+            <h1 className="text-[2rem] font-semibold leading-[1.15] tracking-tighter md:text-5xl">{post.title}</h1>
+          </ViewTransition>
           <p className="mt-4 text-lg leading-relaxed text-muted md:text-xl">{post.description}</p>
           <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-3 border-y border-hairline py-4 text-sm">
             <Link href="/" className="flex items-center gap-2.5 font-medium hover:text-accent">

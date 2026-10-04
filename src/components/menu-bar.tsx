@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, ViewTransition } from "react";
 import { Atom, Command, MagnifyingGlass, WifiHigh } from "@phosphor-icons/react";
 import { site } from "@/content";
 import { openMenu, openSpotlight } from "@/lib/desktop";
@@ -52,61 +52,64 @@ export function MenuBar() {
   const [date, time] = useNow().split("|");
 
   return (
-    <header className="menubar fixed inset-x-0 top-0 z-40 flex h-8 items-center justify-between gap-4 px-4 text-[13px]">
-      <nav aria-label="Sections" className="flex items-center gap-3">
-        <button
-          type="button"
-          aria-label="Desktop menu"
-          aria-haspopup="menu"
-          onClick={(e) => {
-            const box = e.currentTarget.getBoundingClientRect();
-            openMenu(box.left, box.bottom + 4);
-          }}
-          className="-ml-1.5 flex h-6 w-7 items-center justify-center rounded-md transition-colors hover:bg-black/10 dark:hover:bg-white/15"
-        >
-          <Command size={15} weight="bold" aria-hidden className="boot-cmd" />
-        </button>
-        <a href="#top" className="whitespace-nowrap font-semibold">
-          {site.name}
-        </a>
-        <ul className="ml-2 hidden items-center gap-5 md:flex">
-          {links.map((link) => (
-            <li key={link.href}>
-              <a href={link.href} className="rounded px-1 py-0.5 transition-colors hover:bg-black/10 dark:hover:bg-white/15">
-                {link.label}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </nav>
-      <div className="flex items-center gap-3.5 whitespace-nowrap">
-        <button
-          type="button"
-          aria-label="React Native Dev Menu"
-          aria-haspopup="dialog"
-          onClick={openDevMenu}
-          className="-mx-1.5 flex h-6 w-7 items-center justify-center rounded-md transition-colors hover:bg-black/10 dark:hover:bg-white/15"
-        >
-          <Atom size={16} weight="bold" aria-hidden />
-        </button>
-        <button
-          type="button"
-          aria-label="Spotlight search"
-          aria-keyshortcuts="Meta+K Control+K"
-          onClick={openSpotlight}
-          className="-mx-1.5 flex h-6 w-7 items-center justify-center rounded-md transition-colors hover:bg-black/10 dark:hover:bg-white/15"
-        >
-          <MagnifyingGlass size={15} weight="bold" aria-hidden />
-        </button>
-        <WifiHigh size={16} weight="bold" aria-hidden />
-        <Battery />
-        <time className="tabular-nums">
-          {date && <span className="mr-2 hidden sm:inline">{date}</span>}
-          {time}
-        </time>
-      </div>
-      {/* The boot: fills on a first load, then fades (globals.css). */}
-      <span aria-hidden className="boot-line" />
-    </header>
+    // Shared with the sub-pages' menu bar, so page changes animate (globals.css, "Page changes").
+    <ViewTransition name="menubar" share="anchor" default="none">
+      <header className="menubar fixed inset-x-0 top-0 z-40 flex h-8 items-center justify-between gap-4 px-4 text-[13px]">
+        <nav aria-label="Sections" className="flex items-center gap-3">
+          <button
+            type="button"
+            aria-label="Desktop menu"
+            aria-haspopup="menu"
+            onClick={(e) => {
+              const box = e.currentTarget.getBoundingClientRect();
+              openMenu(box.left, box.bottom + 4);
+            }}
+            className="-ml-1.5 flex h-6 w-7 items-center justify-center rounded-md transition-colors hover:bg-black/10 dark:hover:bg-white/15"
+          >
+            <Command size={15} weight="bold" aria-hidden className="boot-cmd" />
+          </button>
+          <a href="#top" className="whitespace-nowrap font-semibold">
+            {site.name}
+          </a>
+          <ul className="ml-2 hidden items-center gap-5 md:flex">
+            {links.map((link) => (
+              <li key={link.href}>
+                <a href={link.href} className="rounded px-1 py-0.5 transition-colors hover:bg-black/10 dark:hover:bg-white/15">
+                  {link.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <div className="flex items-center gap-3.5 whitespace-nowrap">
+          <button
+            type="button"
+            aria-label="React Native Dev Menu"
+            aria-haspopup="dialog"
+            onClick={openDevMenu}
+            className="-mx-1.5 flex h-6 w-7 items-center justify-center rounded-md transition-colors hover:bg-black/10 dark:hover:bg-white/15"
+          >
+            <Atom size={16} weight="bold" aria-hidden />
+          </button>
+          <button
+            type="button"
+            aria-label="Spotlight search"
+            aria-keyshortcuts="Meta+K Control+K"
+            onClick={openSpotlight}
+            className="-mx-1.5 flex h-6 w-7 items-center justify-center rounded-md transition-colors hover:bg-black/10 dark:hover:bg-white/15"
+          >
+            <MagnifyingGlass size={15} weight="bold" aria-hidden />
+          </button>
+          <WifiHigh size={16} weight="bold" aria-hidden />
+          <Battery />
+          <time className="tabular-nums">
+            {date && <span className="mr-2 hidden sm:inline">{date}</span>}
+            {time}
+          </time>
+        </div>
+        {/* The boot: fills on a first load, then fades (globals.css). */}
+        <span aria-hidden className="boot-line" />
+      </header>
+    </ViewTransition>
   );
 }
