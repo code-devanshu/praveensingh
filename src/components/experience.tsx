@@ -21,7 +21,7 @@ export function Experience({ className }: { className?: string }) {
         <div className="mx-auto max-w-3xl rounded-xl bg-surface p-6 shadow-[0_1px_3px_rgb(0_0_0/0.08),0_12px_32px_-12px_rgb(0_0_0/0.18)] md:p-10">
           <div className="flex flex-wrap items-end justify-between gap-4 border-b border-hairline pb-6">
             <div>
-              <h2 className="text-3xl font-semibold tracking-tighter md:text-4xl">Experience</h2>
+              <h2 data-split className="text-3xl font-semibold tracking-tighter md:text-4xl">Experience</h2>
               <p className="mt-1 text-muted">
                 {site.role} · {site.location}
               </p>
@@ -36,31 +36,42 @@ export function Experience({ className }: { className?: string }) {
             </a>
           </div>
 
-          <ol className="relative mt-8 space-y-8 border-l border-hairline pl-6 md:ml-2">
-            {experience.map((job, i) => (
-              <li key={job.company} className="relative">
-                <span
-                  aria-hidden
-                  className={`absolute -left-[31px] top-1.5 h-3 w-3 rounded-full ring-4 ring-surface ${i === 0 ? "bg-accent-fill" : "bg-text/25"}`}
-                />
-                <div className="flex flex-wrap items-baseline justify-between gap-x-4">
-                  <h3 className="text-lg font-semibold">
-                    {job.title}
-                    <span className="font-normal text-muted"> at {job.company}</span>
-                  </h3>
-                  <p className="text-sm tabular-nums text-muted">
-                    {job.start} to {job.end}
-                  </p>
-                </div>
-                <p className="text-sm text-muted">{job.place}</p>
-                <ul className="mt-2 list-disc space-y-1 pl-4 leading-relaxed marker:text-text/30">
-                  {job.points.map((point) => (
-                    <li key={point}>{point}</li>
-                  ))}
-                </ul>
-              </li>
-            ))}
-          </ol>
+          {/* The accent line draws down the hairline as you scroll, lighting
+              each job's dot (data-timeline-*, lib/effects.ts). Without the
+              effects it stays hidden and the page looks as it always did. */}
+          <div className="relative mt-8 md:ml-2">
+            <span
+              aria-hidden
+              data-timeline-line
+              className="absolute -left-[0.5px] top-0 h-full w-0.5 origin-top scale-y-0 rounded-full bg-accent-fill"
+            />
+            <ol className="space-y-8 border-l border-hairline pl-6">
+              {experience.map((job, i) => (
+                <li key={job.company} className="relative">
+                  <span
+                    aria-hidden
+                    data-timeline-dot
+                    className={`timeline-dot absolute -left-[31px] top-1.5 h-3 w-3 rounded-full ring-4 ring-surface ${i === 0 ? "bg-accent-fill" : "bg-text/25"}`}
+                  />
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+                    <h3 className="text-lg font-semibold">
+                      {job.title}
+                      <span className="font-normal text-muted"> at {job.company}</span>
+                    </h3>
+                    <p className="text-sm tabular-nums text-muted">
+                      {job.start} to {job.end}
+                    </p>
+                  </div>
+                  <p className="text-sm text-muted">{job.place}</p>
+                  <ul className="mt-2 list-disc space-y-1 pl-4 leading-relaxed marker:text-text/30">
+                    {job.points.map((point) => (
+                      <li key={point}>{point}</li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ol>
+          </div>
 
           <div className="mt-10 grid gap-8 border-t border-hairline pt-8 md:grid-cols-2">
             <section>

@@ -7,6 +7,7 @@ import { Contact } from "@/components/contact";
 import { Deferred } from "@/components/deferred";
 import { DesktopIcons } from "@/components/desktop-icons";
 import { Dock } from "@/components/dock";
+import { Effects } from "@/components/effects";
 import { Experience } from "@/components/experience";
 import { Faq } from "@/components/faq";
 import { Hero } from "@/components/hero";
@@ -57,6 +58,8 @@ export default async function Home() {
       <Dock blog={posts.length > 0} />
       {/* Spotlight, the desktop menu, dev tools and the notification load after the page. */}
       <Deferred posts={posts.map(({ slug, title, tags }) => ({ slug, title, tags }))} />
+      {/* GSAP scroll and text effects, also after the page (lib/effects.ts). */}
+      <Effects />
     </>
   );
 }

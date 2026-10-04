@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { site } from "@/content";
 import { DocumentWindow } from "./document-window";
+import { Effects } from "./effects";
 import { SiteFooter } from "./site-footer";
 
 type Crumb = { name: string; path: string };
@@ -82,6 +83,7 @@ export function PageShell({ title, crumbs, children, wide = false, titleBarExtra
 
         <SiteFooter />
       </main>
+      <Effects />
     </>
   );
 }

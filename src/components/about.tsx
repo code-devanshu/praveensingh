@@ -14,7 +14,7 @@ export function About({ className }: { className?: string }) {
           className="h-36! w-36! shadow-lg ring-4 ring-white/70 md:h-44! md:w-44! dark:ring-white/10"
         />
         <div className="w-full">
-          <h2 className="text-3xl font-semibold tracking-tighter md:text-4xl">{site.name}</h2>
+          <h2 data-split className="text-3xl font-semibold tracking-tighter md:text-4xl">{site.name}</h2>
           <p className="mt-1 text-muted">{site.role}</p>
           <dl className="mx-auto mt-6 grid max-w-md grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-left text-sm md:mx-0">
             {about.facts.map((fact) => (

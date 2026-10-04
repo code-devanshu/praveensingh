@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDev } from "@/lib/dev";
+import { afterIdle } from "@/lib/idle";
 
 type Parts = {
   Spotlight: typeof import("./spotlight").Spotlight;
@@ -50,15 +51,11 @@ export function Deferred({ posts }: DeferredProps) {
   }, []);
 
   useEffect(() => {
-    const idle = () =>
-      "requestIdleCallback" in window ? requestIdleCallback(start, { timeout: 2000 }) : setTimeout(start, 200);
     // A Perf Monitor left on survives a reload, so it shows at once.
     try {
       if (sessionStorage.getItem("perf")) start();
     } catch {}
-    if (document.readyState === "complete") idle();
-    else window.addEventListener("load", idle, { once: true });
-    return () => window.removeEventListener("load", idle);
+    return afterIdle(start);
   }, [start]);
 
   // The dev tools read a store, so they open by themselves once mounted.

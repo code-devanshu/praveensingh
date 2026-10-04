@@ -10,7 +10,7 @@ export function Faq({ className }: { className?: string }) {
     <Window id="faq" title="Help" className={className}>
       <div className="p-6 md:p-10">
         <p className="text-xs font-medium uppercase tracking-[0.18em] text-accent">Quick answers</p>
-        <h2 className="mt-3 text-3xl font-semibold tracking-tighter md:text-4xl">Frequently asked questions</h2>
+        <h2 data-split className="mt-3 text-3xl font-semibold tracking-tighter md:text-4xl">Frequently asked questions</h2>
         <div className="mt-6 divide-y divide-hairline">
           {faq.map((item, i) => (
             <details key={item.question} open={i === 0} className="group py-1">

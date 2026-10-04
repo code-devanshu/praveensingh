@@ -38,7 +38,7 @@ export function BlogWindow({ posts, className }: { posts: Post[]; className?: st
         </aside>
         <div className="flex-1 p-6 md:p-10">
           <p className="text-xs font-medium uppercase tracking-[0.18em] text-accent">From the blog</p>
-          <h2 className="mt-3 max-w-[24ch] text-2xl font-semibold tracking-tight md:text-3xl">{latest.title}</h2>
+          <h2 data-split className="mt-3 max-w-[24ch] text-2xl font-semibold tracking-tight md:text-3xl">{latest.title}</h2>
           <p className="mt-3 max-w-[60ch] leading-relaxed text-muted">{latest.description}</p>
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <Link

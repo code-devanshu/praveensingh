@@ -13,7 +13,7 @@ export function Stack() {
   return (
     <Window id="tools" title="Tools">
       <div className="p-6 md:p-10">
-        <h2 className="text-3xl font-semibold tracking-tighter md:text-4xl">Tools I ship with</h2>
+        <h2 data-split className="text-3xl font-semibold tracking-tighter md:text-4xl">Tools I ship with</h2>
         <ul className="mt-8 grid grid-cols-4 gap-x-2 gap-y-6 sm:grid-cols-5 md:grid-cols-7">
           {stack.map(({ icon, label }) => {
             const { path, hex } = icons[icon];

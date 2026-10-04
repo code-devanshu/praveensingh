@@ -234,7 +234,9 @@ export function Terminal({ className }: { className?: string }) {
         {lines.map((line, i) => (
           <p key={i} className={`whitespace-pre-wrap break-words ${colour[line.kind]}`}>
             {line.kind === "in" && <Prompt />}
-            {line.text}
+            {/* Its own element, so React sets its text whole; the "Last login"
+                line decodes when the window scrolls into view (data-scramble). */}
+            <span data-scramble={i === 0 ? "view" : undefined}>{line.text}</span>
           </p>
         ))}
         <form

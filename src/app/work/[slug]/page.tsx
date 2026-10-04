@@ -153,9 +153,14 @@ export default async function CaseStudy({ params }: PageProps<"/work/[slug]">) {
                 <div key={m.label} className="rounded-xl bg-surface-2 px-5 py-4">
                   <dt className="text-sm text-muted">{m.label}</dt>
                   <dd className="mt-1 flex flex-wrap items-baseline gap-x-3">
-                    <span className="text-3xl font-semibold tracking-tight text-accent tabular-nums">{m.change}</span>
+                    <span data-count className="text-3xl font-semibold tracking-tight text-accent tabular-nums">
+                      {m.change}
+                    </span>
                     <span className="text-sm tabular-nums text-muted">
-                      {m.before} → {m.after}
+                      {`${m.before} → `}
+                      <span data-count data-count-from={m.before}>
+                        {m.after}
+                      </span>
                     </span>
                   </dd>
                 </div>

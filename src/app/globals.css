@@ -625,6 +625,34 @@ body {
   }
 }
 
+/* Experience: a job's dot lights up when the scroll-drawn line reaches it. */
+.timeline-dot {
+  transition: background-color 0.3s ease, scale 0.3s ease;
+}
+
+.timeline-dot.is-lit {
+  background-color: var(--accent-fill);
+  scale: 1.15;
+}
+
+/* Messages: the "…" bubble before a recommendation appears. */
+.typing-bubble {
+  position: absolute;
+  left: 0;
+  display: flex;
+  gap: 4px;
+  border-radius: 20px 20px 20px 6px;
+  background: var(--surface-2);
+  padding: 12px 14px;
+}
+
+.typing-bubble span {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--text) 40%, transparent);
+}
+
 /* Element Inspector: crosshair on the page, normal cursor on its own panel. */
 .inspecting body * {
   cursor: crosshair !important;

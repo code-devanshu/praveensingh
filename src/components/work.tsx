@@ -235,9 +235,14 @@ function ProjectCard({ project }: { project: Project }) {
               <div key={m.label} className="rounded-xl bg-surface-2 px-3.5 py-3">
                 <dt className="text-xs text-muted">{m.label}</dt>
                 <dd className="mt-1 flex flex-wrap items-baseline gap-x-2">
-                  <span className="text-2xl font-semibold tracking-tight text-accent tabular-nums">{m.change}</span>
+                  <span data-count className="text-2xl font-semibold tracking-tight text-accent tabular-nums">
+                    {m.change}
+                  </span>
                   <span className="whitespace-nowrap text-xs tabular-nums text-muted">
-                    {m.before} → {m.after}
+                    {`${m.before} → `}
+                    <span data-count data-count-from={m.before}>
+                      {m.after}
+                    </span>
                   </span>
                 </dd>
               </div>
@@ -297,7 +302,7 @@ export function Work() {
         </aside>
 
         <div className="min-w-0 flex-1 p-4 md:p-8">
-          <h2 className="text-3xl font-semibold tracking-tighter md:text-4xl">Selected work</h2>
+          <h2 data-split className="text-3xl font-semibold tracking-tighter md:text-4xl">Selected work</h2>
           <p className="mt-2 max-w-[60ch] text-muted">
             Production apps for Android and iOS. Numbers are from release builds and production telemetry.
           </p>
