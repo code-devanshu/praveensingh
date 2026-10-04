@@ -90,3 +90,129 @@ export function Takeaways({ items }: { items: string[] }) {
     </ul>
   );
 }
+
+type Tone = "green" | "blue" | "orange" | "purple";
+type FlowStep = { label: string; detail?: string };
+type FlowLane = {
+  tone: Tone;
+  /** Short tag before the title, e.g. "Rule 1". */
+  tag: string;
+  title: string;
+  /** The section of the post that explains this lane. */
+  href?: string;
+  /** "out": from the phone to the server. "in": from the server to the screen. */
+  direction: "out" | "in";
+  /** The steps on the phone, in the order data flows through them. */
+  phone: FlowStep[];
+  server: FlowStep;
+};
+
+function FlowNode({ step, server = false }: { step: FlowStep; server?: boolean }) {
+  return (
+    <div className={`flow-node${server ? " flow-server" : ""}`}>
+      {step.label}
+      {step.detail && <small>{step.detail}</small>}
+    </div>
+  );
+}
+
+/**
+ * A flow split into lanes, each crossing from the phone to a server (or back)
+ * over a dashed "needs signal" line. Plain HTML and CSS (.flow in
+ * globals.css): no JavaScript, real text, a vertical layout on phones. Each
+ * lane's DOM follows the data, so screen readers and the phone layout read it
+ * in order; inbound lanes are drawn right to left on wider screens.
+ */
+export function FlowDiagram({ label, lanes, caption }: { label: string; lanes: FlowLane[]; caption?: string }) {
+  return (
+    <figure className="flow not-prose" aria-label={label}>
+      <div className="flow-zones" aria-hidden>
+        <span>
+          <b>On the phone</b> · works offline
+        </span>
+        <span>
+          <b>Server</b> · needs signal
+        </span>
+      </div>
+      <ol className="flow-lanes">
+        {lanes.map((lane) => {
+          const phone = lane.phone.flatMap((step, i) => [
+            ...(i > 0 ? [<span key={`a${i}`} className="flow-arrow" aria-hidden>→</span>] : []),
+            <FlowNode key={step.label} step={step} />,
+          ]);
+          const cross = (
+            <span key="cross" className="flow-cross" aria-hidden>
+              <span>→</span>
+              <em>needs signal</em>
+            </span>
+          );
+          const server = <FlowNode key="server" step={lane.server} server />;
+          return (
+            <li key={lane.title} data-tone={lane.tone}>
+              <p className="flow-title">
+                <span>{lane.tag}</span>
+                {lane.href ? <a href={lane.href}>{lane.title}</a> : lane.title}
+              </p>
+              <div className={`flow-row flow-${lane.direction}`}>
+                {lane.direction === "out" ? [...phone, cross, server] : [server, cross, ...phone]}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+      {caption && <figcaption>{caption}</figcaption>}
+    </figure>
+  );
+}
+
+type MergeSource = { who: string; /** Used in "from …" under the result. */ short: string; change: string };
+
+const mergeTones: Tone[] = ["blue", "purple"];
+
+/**
+ * Two (or more) offline edits meeting at the server, and what survives:
+ * each line of the result is marked with the edit it came from.
+ */
+export function MergeDiagram({
+  label,
+  sources,
+  result,
+  caption,
+}: {
+  label: string;
+  sources: MergeSource[];
+  result: { title: string; lines: { text: string; from: number }[]; note?: string };
+  caption?: string;
+}) {
+  return (
+    <figure className="merge not-prose" aria-label={label}>
+      <div className="merge-grid">
+        <ul className="merge-sources">
+          {sources.map((source, i) => (
+            <li key={source.who} data-tone={mergeTones[i % mergeTones.length]} className="merge-card">
+              <span className="merge-who">
+                {source.who}
+                <span className="merge-tag">offline</span>
+              </span>
+              <code>{source.change}</code>
+            </li>
+          ))}
+        </ul>
+        <span className="merge-join" aria-hidden />
+        <div className="merge-card merge-result">
+          <span className="merge-who">{result.title}</span>
+          <ul>
+            {result.lines.map((line) => (
+              <li key={line.text} data-tone={mergeTones[line.from % mergeTones.length]}>
+                <code>{line.text}</code>
+                <small>from the {sources[line.from]?.short}</small>
+              </li>
+            ))}
+          </ul>
+          {result.note && <p className="merge-note">{result.note}</p>}
+        </div>
+      </div>
+      {caption && <figcaption>{caption}</figcaption>}
+    </figure>
+  );
+}

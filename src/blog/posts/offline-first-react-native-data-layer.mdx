@@ -1,0 +1,397 @@
+export const meta = {
+  title: "Designing the offline-first data layer for a new React Native app: outbox, conflicts and photos",
+  description:
+    "The decisions to make on day one when a React Native app has to work without signal: a local database the UI reads, an outbox for writes, safe retries, conflict rules, photo uploads and background sync.",
+  published: "2026-10-04",
+  tags: ["React Native", "Architecture", "Offline-first"],
+  platforms: ["iOS", "Android"],
+  seoTitle: "Offline-first data layer in React Native",
+  seoDescription:
+    "Day-one design for an offline-first React Native app: local database, outbox, idempotent writes, conflict rules, photo uploads and background sync.",
+  mentions: [
+    { name: "PowerSync", url: "https://www.powersync.com/" },
+    { name: "WatermelonDB", url: "https://watermelondb.dev/" },
+    { name: "Expo SQLite", url: "https://docs.expo.dev/versions/latest/sdk/sqlite/" },
+    { name: "op-sqlite", url: "https://github.com/OP-Engineering/op-sqlite" },
+    { name: "Legend-State", url: "https://legendapp.com/open-source/state/" },
+    { name: "TinyBase", url: "https://tinybase.org/" },
+    { name: "LiveStore", url: "https://livestore.dev/" },
+    { name: "Zero", url: "https://zero.rocicorp.dev/" },
+    { name: "Expo BackgroundTask", url: "https://docs.expo.dev/versions/latest/sdk/background-task/" },
+    { name: "React Native", url: "https://reactnative.dev/" },
+  ],
+};
+
+<ShortAnswer>
+  Decide on day one, because offline-first changes your IDs, your API and how every screen reads data. Make the
+  local database the only thing the UI reads. Record every write in an outbox table in the same transaction, give
+  every record and every write an ID generated on the phone, and make the server apply each write at most once.
+  Let the server settle conflicts field by field, sync photos in their own queue, and treat background sync as a
+  bonus rather than a promise. Use a sync engine like PowerSync when your backend is Postgres and you'd rather not
+  build the protocol yourself.
+</ShortAnswer>
+
+At Delightree, franchise teams across 150+ brands run audits and checklists in stores and kitchens, often with weak or no signal. I built those flows offline-first: the audit works with no connection, photos are captured on the spot, and everything syncs when the phone gets a signal back. This post is the design I'd put in place on day one of a new React Native app with the same needs, and the decisions behind it.
+
+<Note title="What this post is">
+  A design guide from production experience, not a benchmark. Where I describe how a library behaves, the claim
+  comes from its own docs, linked inline. The code is a sketch of the pattern, not a drop-in package.
+</Note>
+
+Every field app meets the same three failures sooner or later: an answer that never reaches the server, the same audit submitted twice, and a checklist that still shows yesterday's version. Each rule below exists to stop one of them.
+
+It's a good time to write this down. MongoDB shut down Realm's Atlas Device Sync on 30 September 2025, which for years was the default answer to "offline sync in React Native", so new projects need a different one. There are plenty of candidates: PowerSync, WatermelonDB, LiveStore, Zero, TinyBase, Legend-State, Turso. Expo now has a [local-first guide](https://docs.expo.dev/guides/local-first/) that surveys them and warns that the tools are early stage, but it doesn't go into the parts that decide whether people lose work: the outbox, conflicts, files and background sync. Those are what this post is about.
+
+## Why decide on day one?
+
+Offline-first isn't a feature you add to a screen. It changes three things everywhere:
+
+- **IDs.** Records get created on the phone, with no server to number them, so IDs are generated on the device from the start.
+- **The API.** The app stops calling "save this form" endpoints and starts sending a queue of small changes, then asking "what changed since my last sync?".
+- **How screens read data.** Every screen reads the local database, never the network.
+
+Retrofitting all three into a finished app means rewriting most of its data access. Choosing them on day one costs a few days.
+
+## How offline do you need to be?
+
+There are three levels, and most apps only need the first:
+
+| Level | What works offline | Typical tools | The catch |
+| --- | --- | --- | --- |
+| 1. Cached reads | Viewing what you've seen | TanStack Query with a persisted cache | Nothing can be changed offline |
+| 2. Queued writes | Simple changes, retried later | TanStack Query's paused mutations | Fragile after a restart (below); no queries across local changes |
+| 3. Local database as the source of truth | Everything, for days | SQLite plus an outbox, or a sync engine | You own sync, conflicts and migrations |
+
+Level 2 is where many apps get burned. TanStack Query can persist paused mutations, but its docs are clear that "only the state of mutations is persisted, as functions cannot be serialized". After a restart nothing resumes unless you've registered a default with `setMutationDefaults` for every mutation key, and you still can't query "all audits, including the three I edited offline". That's fine for a like button and not for an audit.
+
+If people do real work without signal, like audits, inspections, deliveries or field sales, you need level 3. The rest of this post is about level 3.
+
+## What does the design look like?
+
+<FlowDiagram
+  label="How data moves in an offline-first React Native app: reads, writes and photos"
+  lanes={[
+    {
+      tone: "blue",
+      tag: "Rule 1",
+      title: "Screens read only the local database; sync fills it",
+      href: "#rule-1-screens-only-read-the-local-database",
+      direction: "in",
+      server: { label: "Changes", detail: "since the last checkpoint" },
+      phone: [
+        { label: "Apply changes", detail: "re-apply pending edits" },
+        { label: "Local SQLite", detail: "the source of truth" },
+        { label: "Screen", detail: "live query" },
+      ],
+    },
+    {
+      tone: "green",
+      tag: "Rules 2–4",
+      title: "Every write: one transaction, then an ordered push",
+      href: "#rule-2-every-write-goes-into-an-outbox-in-the-same-transaction",
+      direction: "out",
+      phone: [
+        { label: "Screen", detail: "someone taps “Fail”" },
+        { label: "Row + outbox entry", detail: "one transaction" },
+        { label: "Outbox", detail: "sent in order" },
+      ],
+      server: { label: "Your API", detail: "applies once, settles conflicts" },
+    },
+    {
+      tone: "orange",
+      tag: "Photos",
+      title: "Photos travel separately",
+      href: "#photos-dont-belong-in-the-outbox",
+      direction: "out",
+      phone: [
+        { label: "Camera", detail: "resized to 1,600 px" },
+        { label: "File + attachment row", detail: "outside Caches" },
+        { label: "Upload queue", detail: "its own retries" },
+      ],
+      server: { label: "Object storage", detail: "signed URL" },
+    },
+  ]}
+  caption="Everything on the phone side of the dashed line works with no signal. Only the arrows that cross it need a connection."
+/>
+
+Four rules hold it together.
+
+## Rule 1: screens only read the local database
+
+If a screen ever reads from the network, it shows something different offline, and that's where "it worked on Wi-Fi" bugs come from. Read everything through reactive queries, so a screen updates when the local data changes, whether the user changed it or a sync did:
+
+```ts title="db.ts"
+import { openDatabaseSync } from "expo-sqlite";
+import { drizzle, useLiveQuery } from "drizzle-orm/expo-sqlite";
+
+// The change listener is what lets live queries re-run when a row changes.
+const sqlite = openDatabaseSync("app.db", { enableChangeListener: true });
+export const db = drizzle(sqlite);
+
+// In a screen: re-renders on local edits and on synced changes alike.
+const { data: items } = useLiveQuery(db.select().from(auditItems).where(eq(auditItems.auditId, auditId)));
+```
+
+op-sqlite has reactive queries too, and WatermelonDB, LiveStore, TinyBase and PowerSync all give you live queries of their own.
+
+Don't let "am I online?" decide what the app does either. NetInfo's `isInternetReachable` comes from a request to a check URL (Google's `generate_204` by default), repeated every 60 seconds while it last succeeded. Hotel and store Wi-Fi with a login page passes `isConnected` and fails every real request. Treat network state as a hint for when to try a sync, and let a failed request be the real answer.
+
+## Rule 2: every write goes into an outbox, in the same transaction
+
+The outbox is a table of changes waiting to be sent. The important part is writing the change and its outbox entry in **one transaction**. If the app is killed between the two, you get neither or both, never an edited row that will never sync. Backend developers know this as the [transactional outbox](https://microservices.io/patterns/data/transactional-outbox.html).
+
+```sql title="schema.sql"
+CREATE TABLE outbox (
+  seq INTEGER PRIMARY KEY AUTOINCREMENT,  -- send order
+  id TEXT NOT NULL UNIQUE,                -- UUIDv7, also the idempotency key
+  entity TEXT NOT NULL,                   -- 'audit_item'
+  entity_id TEXT NOT NULL,
+  op TEXT NOT NULL,                       -- 'create' | 'update' | 'delete'
+  patch TEXT NOT NULL,                    -- JSON: only the fields this write changed
+  schema_version INTEGER NOT NULL,        -- the payload shape this app version sends
+  attempts INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'pending', -- 'pending' | 'failed'
+  error TEXT
+);
+```
+
+```ts title="answerQuestion.ts"
+import { v7 as uuidv7 } from "uuid"; // needs crypto.getRandomValues: expo-crypto or react-native-get-random-values
+
+export async function answerQuestion(itemId: string, answer: string) {
+  await sqlite.withExclusiveTransactionAsync(async (tx) => {
+    await tx.runAsync("UPDATE audit_items SET answer = ?, updated_at = ? WHERE id = ?", [answer, Date.now(), itemId]);
+    await tx.runAsync(
+      "INSERT INTO outbox (id, entity, entity_id, op, patch, schema_version) VALUES (?, 'audit_item', ?, 'update', ?, ?)",
+      [uuidv7(), itemId, JSON.stringify({ answer }), SCHEMA_VERSION],
+    );
+  });
+  requestSync(); // starts a sync, or joins the one that's running
+}
+```
+
+Three details matter more than they look:
+
+- **IDs come from the phone.** Use UUIDv7 ([RFC 9562](https://www.rfc-editor.org/rfc/rfc9562)): it's generated offline with no coordination, and it's time-ordered, so it indexes far better than random v4 IDs. A record created offline already has its final ID, so there are no temporary IDs to swap later and child records can point at their parent straight away.
+- **Send only what changed.** A patch of `{ answer }` can be merged with someone else's change to the photo on the same item. A whole record can't.
+- **Send in order.** A checklist item must reach the server before the photo that belongs to it. PowerSync drains its upload queue sequentially for the same reason.
+
+## Rule 3: make every write safe to send twice
+
+Here's the failure every offline app hits eventually. The server saves the write, the response is lost (a tunnel, a lift, the app swiped away), and the phone sends it again. Without protection, that's a duplicate audit.
+
+The fix is the same one payment APIs use. Stripe's [idempotency keys](https://docs.stripe.com/api/idempotent_requests) save the result of the first request for a key and return that same result for any retry with the same key. The outbox entry's ID is that key. On the server, record each applied write in the same transaction as the change:
+
+```ts title="server: POST /mutations"
+app.post("/mutations", async (req) => {
+  const m = req.body; // { id, entity, entityId, op, patch, schemaVersion }
+  return db.transaction(async (tx) => {
+    const seen = await tx.query("SELECT result FROM applied_mutations WHERE id = $1", [m.id]);
+    if (seen.rows[0]) return seen.rows[0].result; // a retry: same answer, applied once
+    const result = await apply(tx, upgrade(m)); // upgrade(): old app versions' payloads
+    await tx.query("INSERT INTO applied_mutations (id, result) VALUES ($1, $2)", [m.id, result]);
+    return result;
+  });
+});
+```
+
+WatermelonDB's sync protocol has the same rule for creates: if a pushed record's ID already exists, the server must update it, not return an error. PowerSync requires uploads to be idempotent too.
+
+The `upgrade()` call deserves a mention. A phone can sit offline with queued writes while the app updates underneath it, so the server has to accept payloads from older app versions for weeks. That's what `schema_version` in the outbox is for.
+
+## Rule 4: decide who wins a conflict, field by field
+
+Two people edit the same checklist item offline and both sync. Someone has to win. These are the common rules:
+
+| Rule | How it works | Used by |
+| --- | --- | --- |
+| Server's order, per field | Each field takes the last write the server received; deletes always win | PowerSync's suggested default |
+| Client wins, per field | Server version, except fields changed on this phone since the last sync | WatermelonDB's built-in sync |
+| CRDT | Every field carries a hybrid logical clock; merges are automatic | TinyBase's MergeableStore, Yjs for text |
+| Domain rules | The server rejects writes that break a rule | Your API |
+
+For audits I'd start with the first, plus domain rules on top: per-field, last write the server receives wins, deletes win, and **a submitted audit is closed**, so the server rejects later edits to it. Two things follow from that:
+
+- **Never order writes by the phone's clock.** People set their clocks wrong, and phones drift. Use the order the server receives writes in, or a hybrid logical clock if you really need causal order.
+- **A rejected write needs somewhere to go.** If the server says no for good (validation failed, audit already submitted), retrying forever blocks everything behind it. Mark the entry `failed`, keep the reason, show it on the record, and move on. Network errors, timeouts, 5xx responses and a 401 that a token refresh can fix get retried with backoff. A 4xx that won't change gets marked failed.
+
+Here's how that plays out in an example. A store manager and an area manager both open the same audit with no signal. The store manager marks "Freezer temperature" as failed. The area manager, on a different phone, adds a note to the same item: "Seal replaced, recheck tomorrow". Because both writes are patches of different fields, the server keeps both: the answer from one, the note from the other. If both had changed the answer, the one the server received last would win, and the item's history would show both. And if the store manager had already submitted the audit, the area manager's note would be rejected, show up as failed on their phone with the reason, and wait for them to decide what to do with it.
+
+<MergeDiagram
+  label="Two offline edits to the same audit item, merged by the server field by field"
+  sources={[
+    { who: "Store manager's phone", short: "store manager", change: "answer → Fail" },
+    { who: "Area manager's phone", short: "area manager", change: "note → “Seal replaced, recheck tomorrow”" },
+  ]}
+  result={{
+    title: "Server: Freezer temperature",
+    lines: [
+      { text: "answer: Fail", from: 0 },
+      { text: "note: “Seal replaced, recheck tomorrow”", from: 1 },
+    ],
+    note: "Different fields, so both survive.",
+  }}
+  caption="Same field on both phones? The write the server received last wins. Audit already submitted? The note is rejected and shows as failed on the area manager's phone."
+/>
+
+## The sync loop: push, then pull
+
+```ts title="sync.ts"
+let running: Promise<void> | null = null;
+
+export function requestSync() {
+  running ??= sync().finally(() => (running = null)); // one sync at a time
+  return running;
+}
+
+async function sync() {
+  // 1. Push, in order.
+  for (;;) {
+    const next = await sqlite.getFirstAsync<OutboxRow>("SELECT * FROM outbox WHERE status = 'pending' ORDER BY seq LIMIT 1");
+    if (!next) break;
+    const res = await api.push(next); // Idempotency-Key: next.id
+    if (res.ok) await sqlite.runAsync("DELETE FROM outbox WHERE id = ?", [next.id]);
+    else if (res.retryable) return retryLater(next); // offline, 5xx, timeout: back off and stop
+    else await sqlite.runAsync("UPDATE outbox SET status = 'failed', error = ? WHERE id = ?", [res.error, next.id]);
+  }
+  // 2. Pull everything that changed since the last checkpoint, which is the server's sequence, not a time.
+  const { changes, checkpoint } = await api.pull(await getCheckpoint());
+  await sqlite.withExclusiveTransactionAsync(async (tx) => {
+    await applyServerChanges(tx, changes); // then re-apply any still-pending local patches on top
+    await setCheckpoint(tx, checkpoint);
+  });
+}
+```
+
+Push before pull, so the server already has this phone's writes when it answers. Then re-apply anything still pending on top of what you pulled, or a pull overwrites an edit that hasn't been sent yet. WatermelonDB does this per column, and LiveStore calls it a rebase. The server's pull has to be consistent too: WatermelonDB's backend docs require that the pull endpoint returns a consistent view of changes since the last pull, taken in one transaction.
+
+## Photos don't belong in the outbox
+
+A five-megabyte photo in a JSON outbox is slow to send, and it blocks every small write queued behind it. Treat files as their own pipeline, the way PowerSync's attachment queue does:
+
+1. **Save the photo to a directory the OS won't clear.** iOS can delete `Caches` and `tmp` when the phone runs low on space, so a queued photo kept there can disappear before it's uploaded.
+2. **Record it in the same transaction as the record that uses it:** an `attachments` row with its own UUIDv7 and a state (`queued_upload`, `uploading`, `synced`, `failed`), plus the outbox entry that links it to the checklist item.
+3. **Upload it separately,** to object storage through a signed URL from your API, with its own retries. The record syncs straight away and shows "photo uploading" until the file arrives.
+
+On iOS, only a background `URLSession` keeps an upload going after the app is suspended. Expo's new file system API uploads with `fetch`, which doesn't keep going once iOS suspends the app. The legacy API still has background sessions on iOS:
+
+```ts title="uploadPhoto.ts"
+import { FileSystemSessionType, FileSystemUploadType, uploadAsync } from "expo-file-system/legacy";
+
+// iOS only: the upload continues in a background URLSession after the app is suspended,
+// and keeps retrying until it succeeds or is cancelled.
+await uploadAsync(signedUrl, attachment.localPath, {
+  httpMethod: "PUT",
+  uploadType: FileSystemUploadType.BINARY_CONTENT,
+  sessionType: FileSystemSessionType.BACKGROUND,
+  headers: { "Content-Type": "image/jpeg" },
+});
+```
+
+If the app was killed, that promise only settles the next time the app comes to the foreground. So on launch, check uploads still marked `uploading` against the server. On Android, use WorkManager for long uploads. If you use a foreground service instead, note that since Android 15 a `dataSync` foreground service gets 6 hours in any 24.
+
+### Shrink photos before you queue them
+
+An audit photo is evidence, not a print. A full-resolution 12-megapixel photo is usually 2 to 5 MB, and a long edge of 1,600 pixels at JPEG quality 0.7 is still sharp enough to read a temperature display or a label, at roughly a tenth of the size. Resize when the photo is taken, before it goes into the queue:
+
+```ts title="preparePhoto.ts"
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
+
+const LONG_EDGE = 1600;
+
+// `asset` is what expo-image-picker or the camera returns: a uri plus its size.
+export async function preparePhoto(asset: { uri: string; width: number; height: number }) {
+  const context = ImageManipulator.manipulate(asset.uri);
+  if (Math.max(asset.width, asset.height) > LONG_EDGE) {
+    context.resize(asset.width >= asset.height ? { width: LONG_EDGE } : { height: LONG_EDGE });
+  }
+  const image = await context.renderAsync();
+  return image.saveAsync({ compress: 0.7, format: SaveFormat.JPEG }); // { uri, width, height }
+}
+```
+
+The arithmetic is what makes this matter offline. An audit with 20 photos at 3 MB each is a 60 MB queue, which takes about 8 minutes on a 1 Mbps connection. At 300 KB each it's 6 MB, which takes under a minute. Those are the numbers to check against your own photos and your users' connections.
+
+Don't rely on a photo's EXIF data for evidence such as when or where it was taken: re-encoding can drop it. Store the capture time and location in the record instead.
+
+## Syncing when the app isn't open
+
+`expo-background-task` (it replaced `expo-background-fetch` in SDK 53) runs JavaScript in the background through WorkManager on Android and BGTaskScheduler on iOS:
+
+```ts title="backgroundSync.ts"
+import * as BackgroundTask from "expo-background-task";
+import * as TaskManager from "expo-task-manager";
+
+TaskManager.defineTask("sync", async () => {
+  await requestSync();
+  return BackgroundTask.BackgroundTaskResult.Success;
+});
+
+await BackgroundTask.registerTaskAsync("sync", { minimumInterval: 15 }); // minutes
+```
+
+Its limits decide how much you can rely on it:
+
+- **Android:** every 15 minutes at the most.
+- **iOS:** the system picks the time, based on battery, network and how the person uses the app.
+- **Swiping the app away stops it.** On iOS that fully terminates the app, and tasks only resume when the app is opened again.
+- **Testing:** it doesn't run in the iOS simulator.
+
+So the reliable triggers are the foreground ones: sync after every write, when the app comes back to the foreground, and when the network comes back. Background sync is a bonus. Show a "last synced" time so people can see it for themselves.
+
+## Easy to forget
+
+- **Long offline periods outlive tokens.** If the refresh token has expired, keep the outbox, ask the person to sign in again, and carry on. Never clear local data on a 401.
+- **Signing out with unsent work.** Warn before you delete a database that still has pending writes.
+- **Encryption at rest.** Audits can be sensitive, and both op-sqlite and expo-sqlite support SQLCipher.
+- **Show the state of each record.** Pending, synced or failed, on the record itself. If people can't trust the app with their work, they'll photograph the screen as a backup.
+
+## Build it, or use a sync engine?
+
+Everything above is what a sync engine does for you. Here's where the options stand in late 2026:
+
+| Option | What you get | Conflicts | A good fit when |
+| --- | --- | --- | --- |
+| SQLite + your own outbox (expo-sqlite or op-sqlite) | Full control, over your existing API | Your server's rules | You have an API already and domain rules matter |
+| [PowerSync](https://www.powersync.com/) | Postgres, MongoDB or MySQL synced into SQLite on the phone; writes go through your API; an attachment queue | Your backend decides; suggested per-field, deletes win | Your backend is Postgres and you don't want to build the protocol |
+| [WatermelonDB](https://watermelondb.dev/) | A reactive ORM on SQLite with lazy loading, plus a sync protocol you implement in 2 endpoints | Per-column client wins | Large local datasets, and you're happy to write the endpoints |
+| [LiveStore](https://livestore.dev/) | Event sourcing on SQLite, an Expo adapter, several sync backends | Events are rebased | You like event sourcing; its docs say they're still in progress |
+| [Zero](https://zero.rocicorp.dev/) | Query-driven sync with permissions; Expo via its SQLite store | The server | Postgres with complex per-user permissions |
+| [TinyBase](https://tinybase.org/) / [Legend-State](https://legendapp.com/open-source/state/) | Reactive stores with sync: a CRDT in TinyBase, Supabase and CRUD plugins in Legend-State | Cell-level LWW (TinyBase), timestamps (Legend-State) | Smaller datasets, simpler apps |
+| Realm | Device Sync shut down in September 2025; a community build without sync remains | n/a | Not for new projects |
+
+PowerSync's self-hosted Open Edition is source-available under the Functional Source License, which turns into an open-source license two years after each release. Turso's sync, available in both expo-sqlite (libSQL) and op-sqlite, is another option worth watching if one database per user suits you.
+
+My rule of thumb is to **use an engine when your data is mostly records synced from Postgres**, and **build your own outbox when the server has to enforce domain rules** (a submitted audit is closed, a manager approves), or when your backend isn't Postgres. Even with an engine, rules 2 to 4 are still your job: PowerSync hands every queued write to your own API, so that API still needs to be idempotent and still decides conflicts.
+
+### What I'd pick for a new app today
+
+For a new field app, I'd start with expo-sqlite, Drizzle and a hand-written outbox like the one above. Audits are full of rules only the server can enforce (who can edit what, when an audit is closed), and I'd rather own the one table and two endpoints that carry them than work around an engine's model. If the backend were Postgres and the data mostly plain records, like a catalogue or a contact list, I'd use PowerSync, and keep rules 2 to 4 in the API it calls.
+
+## How to test it before you ship
+
+Offline bugs don't show up on office Wi-Fi. Run these four tests on every release that touches the data layer:
+
+1. **Go offline for a while.** Make 100 edits with the network off, then reconnect. Check that the server and the phone end up identical, and that no edit was lost.
+2. **Edit the same record on two phones,** both offline, then sync both. Check that the result matches your conflict rule, and that whoever lost can see what happened.
+3. **Kill the app mid-sync,** while the outbox is draining. Reopen it and check for writes lost or applied twice. The target is zero of each.
+4. **Queue 20 photos on a slow network.** Check that small writes behind them still sync, and that uploads survive the app going to the background.
+
+The simulators can do most of this:
+
+- **Slow or no network:** on the iOS simulator, Apple's Network Link Conditioner (in Xcode's Additional Tools) slows down or cuts the Mac's network. On the Android emulator, use the cellular settings in the extended controls.
+- **Killing the app:** `xcrun simctl terminate booted <bundle id>` on iOS, and `adb shell am force-stop <package>` on Android.
+- **Background uploads and background tasks:** test these on a real phone. `expo-background-task` doesn't run in the iOS simulator at all.
+
+<Takeaways
+  items={[
+    "Decide on offline-first before the first screen: it changes IDs, the API and how every screen reads data.",
+    "Screens read only the local database, through live queries; network state is a hint, not the truth.",
+    "Write the change and its outbox entry in one transaction, with UUIDv7 IDs generated on the phone.",
+    "Send each write with its outbox ID as an idempotency key, so a retry is applied once.",
+    "Settle conflicts per field on the server, never by the phone's clock, and give rejected writes a visible failed state.",
+    "Push before you pull, and re-apply pending local changes on top of what you pull.",
+    "Photos get their own queue: a file the OS won't clear, a signed-URL upload, and a background URLSession on iOS.",
+    "Background sync is a bonus: sync after writes, on foreground and on reconnect, and show a 'last synced' time.",
+  ]}
+/>
