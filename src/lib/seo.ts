@@ -143,16 +143,14 @@ export const profilePage = {
   isPartOf: { "@id": ids.website },
   mainEntity: { "@id": ids.person },
   dateModified: site.updated,
-  hasPart: {
-    "@type": "ItemList",
-    name: "Selected work",
-    itemListElement: projects.map((p, i) => ({
-      "@type": "ListItem",
-      position: i + 1,
-      url: absolute(caseStudyPath(p)),
-      name: p.name,
-    })),
-  },
+  // The case studies, as the Article nodes their own pages define. (hasPart
+  // only takes creative works, so an ItemList here fails validation.)
+  hasPart: projects.map((p) => ({
+    "@type": "Article",
+    "@id": absolute(`${caseStudyPath(p)}#article`),
+    headline: `${p.name}: a React Native case study`,
+    url: absolute(caseStudyPath(p)),
+  })),
 };
 
 /** Wraps nodes in one @graph document for a <script type="application/ld+json">. */

@@ -21,8 +21,10 @@ const find = (slug: string) => projects.find((p) => p.slug === slug);
 export async function generateMetadata({ params }: PageProps<"/work/[slug]">): Promise<Metadata> {
   const project = find((await params).slug);
   if (!project) return {};
-  const title = `${project.name} case study, React Native for ${project.platforms}`;
-  return pageMetadata({ title, description: project.summary, path: caseStudyPath(project), type: "article" });
+  // Kept within what Google shows: ~60 characters of title, ~155 of description.
+  const title = project.searchTitle ?? `${project.name}: React Native case study`;
+  const description = project.searchDescription ?? project.summary;
+  return pageMetadata({ title, description, path: caseStudyPath(project), type: "article" });
 }
 
 const capabilityIcons = { payments: CreditCard, nfc: ContactlessPayment, ble: BluetoothConnected };

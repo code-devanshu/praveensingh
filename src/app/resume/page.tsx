@@ -9,7 +9,7 @@ import { absolute, breadcrumbs, caseStudyPath, ids, pageMetadata } from "@/lib/s
 // The résumé as a web page: search engines and AI tools read HTML far
 // better than a PDF, and it links through to the case studies.
 const title = "Résumé, Senior React Native Developer";
-const description = `${site.name}'s résumé: ${site.role} in ${site.location} with 5+ years at upGrad, Delightree, Gojoko Technologies, Invia and WebMobril. Experience, projects, skills and certifications.`;
+const description = `${site.name}'s résumé: ${site.role} in ${site.location}, with 5+ years at upGrad, Delightree, Gojoko, Invia and WebMobril.`;
 
 export const metadata: Metadata = pageMetadata({ title, description, path: "/resume", type: "profile" });
 

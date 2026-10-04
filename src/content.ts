@@ -76,6 +76,10 @@ export type Project = {
   company: string;
   domain: string;
   summary: string;
+  /** Search result title, without "| Praveen Singh", when "<name>: React Native case study" runs past ~60 characters. */
+  searchTitle?: string;
+  /** Search result description, when `summary` runs past ~155 characters. */
+  searchDescription?: string;
   platforms: string;
   stack: string[];
   year: string;
@@ -126,6 +130,8 @@ export const projects: Project[] = [
     domain: "Edtech",
     summary:
       "The learning app for upGrad's global learner base. Adaptive-bitrate course video through native Swift and Kotlin modules, offline downloads with encrypted storage, and CodePush for fixes without a store release.",
+    searchDescription:
+      "upGrad's learning app: adaptive-bitrate course video through native Swift and Kotlin modules, encrypted offline downloads, and CodePush fixes.",
     challenge:
       "upGrad's learners watch long course videos on every kind of phone and network, often offline, and a bug in a learning app can't wait days for store review.",
     platforms: "iOS and Android",
@@ -171,6 +177,8 @@ export const projects: Project[] = [
     domain: "Fintech",
     summary:
       "A credit card app for a UK fintech: card management, transactions and payments, with Visa 3-D Secure, biometric sign-in and hardening against the OWASP Mobile Top 10.",
+    searchDescription:
+      "A UK fintech credit card app in React Native: card management, payments, Visa 3-D Secure, biometric sign-in and OWASP Mobile Top 10 hardening.",
     challenge:
       "A UK credit card had to handle card management, transactions and payments with the security a regulated card product needs, and stay smooth on everyday phones.",
     platforms: "iOS and Android",
@@ -192,6 +200,8 @@ export const projects: Project[] = [
     domain: "Operations",
     summary:
       "Franchise operations for 150+ brands. Offline-first audits with photo capture and queued sync, AI-powered SOP search, and checklists moved to FlashList to kill scroll jank.",
+    searchDescription:
+      "Franchise operations app for 150+ brands: offline-first audits with photo capture and queued sync, AI-powered SOP search, and jank-free checklists.",
     challenge:
       "Franchise teams run audits and checklists in stores and kitchens with patchy signal, across 150+ brands with different roles, locations and permissions.",
     platforms: "iOS and Android",
@@ -241,6 +251,7 @@ export const projects: Project[] = [
     domain: "IoT and Commerce",
     summary:
       "8 to 10 production apps for agency clients across e-commerce, NFC and IoT, most of them needing native code alongside React Native.",
+    searchTitle: "NFC, BLE and payments apps in React Native",
     challenge:
       "Agency clients across e-commerce, NFC and IoT each needed a production app, and most of them needed native code that React Native doesn't ship with.",
     platforms: "iOS and Android",

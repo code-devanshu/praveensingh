@@ -38,6 +38,8 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     type: "profile",
+    // The home page's; every sub-page sets its own through pageMetadata().
+    url: "/",
     title: site.searchTitle,
     description: site.description,
     siteName: site.name,
