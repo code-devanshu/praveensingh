@@ -5,8 +5,8 @@ import { SplitText } from "gsap/SplitText";
 
 gsap.registerPlugin(ScrollTrigger, SplitText, ScrambleTextPlugin);
 
-// GSAP scroll and text effects, loaded once the page has gone idle
-// (components/effects.tsx). The page is complete without them: it's server
+// GSAP scroll and text effects, loaded when the visitor first scrolls, taps,
+// types or moves the mouse (components/effects.tsx). The page is complete without them: it's server
 // rendered and everything is visible, and an effect only sets up on things
 // still below the fold, so nothing on screen blinks out when this arrives.
 // Reduced motion turns them all off. GSAP never animates an element `motion`
@@ -18,7 +18,8 @@ gsap.registerPlugin(ScrollTrigger, SplitText, ScrambleTextPlugin);
 //   data-timeline-line/dot the Experience line draws as you scroll
 //   data-tick              a Reminders checkbox ticks itself
 //   data-split             a heading rises in word by word
-//   data-scramble          text decodes ("intro": once per tab, at load)
+//   data-scramble          text decodes ("intro": once per tab when the
+//                          effects arrive, and again on hover)
 //   data-parallax[-root]   the hero phones drift and tilt with the scroll
 
 type Undo = (() => void)[];
@@ -155,22 +156,35 @@ function headings() {
   }
 }
 
-function scramble() {
+function scramble(undo: Undo) {
   const intro = document.querySelector<HTMLElement>('[data-scramble="intro"]');
-  let fresh = false;
-  try {
-    fresh = !sessionStorage.getItem("intro");
-    sessionStorage.setItem("intro", "1");
-  } catch {}
-  if (intro && fresh) {
-    // Scrambled letters are wider or narrower than the real ones; holding the
-    // height keeps an extra wrapped line from shifting the page (CLS).
-    gsap.set(intro, { height: intro.offsetHeight, overflow: "hidden" });
-    gsap.to(intro, {
-      duration: 1.4,
-      scrambleText: { text: intro.textContent ?? "", chars: "upperCase", speed: 0.5, revealDelay: 0.2 },
-      onComplete: () => gsap.set(intro, { clearProps: "height,overflow" }),
-    });
+  if (intro) {
+    const text = intro.textContent ?? "";
+    let playing = false;
+    const decode = () => {
+      if (playing) return;
+      playing = true;
+      // Scrambled letters are wider or narrower than the real ones; holding
+      // the height keeps an extra wrapped line from shifting the page (CLS).
+      gsap.set(intro, { height: intro.offsetHeight, overflow: "hidden" });
+      gsap.to(intro, {
+        duration: 1.2,
+        scrambleText: { text, chars: "upperCase", speed: 0.5, revealDelay: 0.15 },
+        onComplete: () => {
+          gsap.set(intro, { clearProps: "height,overflow" });
+          playing = false;
+        },
+      });
+    };
+    let fresh = false;
+    try {
+      fresh = !sessionStorage.getItem("intro");
+      sessionStorage.setItem("intro", "1");
+    } catch {}
+    // Once per tab while it's still on screen, then whenever it's hovered.
+    if (fresh && intro.getBoundingClientRect().bottom > 0) decode();
+    intro.addEventListener("pointerenter", decode);
+    undo.push(() => intro.removeEventListener("pointerenter", decode));
   }
 
   for (const el of gsap.utils.toArray<HTMLElement>('[data-scramble="view"]')) {
@@ -210,7 +224,7 @@ export function startEffects() {
     timeline(undo);
     ticks();
     headings();
-    scramble();
+    scramble(undo);
     parallax();
     return () => undo.splice(0).forEach((fn) => fn());
   });
