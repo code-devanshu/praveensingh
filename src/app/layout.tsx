@@ -57,6 +57,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      // globals.css scrolls smoothly for in-page links. This tells Next to
+      // switch that off while it changes pages, so a new page opens at the top
+      // at once instead of animating there, where any scroll, such as a
+      // trackpad's leftover momentum, could stop it partway down.
+      data-scroll-behavior="smooth"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       // The boot script below sets a class and data-wallpaper before paint.
       suppressHydrationWarning
