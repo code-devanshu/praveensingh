@@ -1,0 +1,363 @@
+export const meta = {
+  title: "Making a React Native app agent-ready: what happens when Siri calls and your JavaScript isn't running",
+  description:
+    "I exposed a React Native app's actions to Siri with expo-app-intents, measured three designs with the app closed, and hit a SQLite bug that silently lost data. Plus what Android's AppFunctions will need.",
+  published: "2026-10-08",
+  tags: ["React Native", "AI", "Expo", "Agents"],
+  platforms: ["iOS", "Android"],
+  seoTitle: "Agent-ready React Native: App Intents",
+  seoDescription:
+    "Expose a React Native app's actions to Siri with expo-app-intents: three designs measured with the app closed, and a SQLite bug that silently lost data.",
+  repo: "https://github.com/psingh2907/rn-agent-ready-lab",
+  mentions: [
+    { name: "Expo AppIntents", url: "https://docs.expo.dev/versions/v58.0.0/sdk/app-intents/" },
+    { name: "App Intents", url: "https://developer.apple.com/documentation/appintents" },
+    { name: "Android AppFunctions", url: "https://developer.android.com/ai/appfunctions" },
+    { name: "Expo SQLite", url: "https://docs.expo.dev/versions/latest/sdk/sqlite/" },
+    { name: "Expo", url: "https://expo.dev/" },
+    { name: "React Native", url: "https://reactnative.dev/" },
+  ],
+};
+
+{/*
+iOS is measured; Android is from the docs and the expo-sqlite source, and says so. When the Android lab runs,
+replace the "Not run yet" section with results, update AtAGlance and ShortAnswer, and set `updated`.
+*/}
+
+<AtAGlance
+  problem="Siri or Gemini calls your React Native app while its JavaScript isn't running"
+  fix="Do the work natively, against the same database and the same SQLite copy as your JavaScript"
+  result="5 ms vs next launch"
+  resultLabel="time to save a task with the app closed: done in Swift vs queued for JavaScript"
+/>
+
+<ShortAnswer>
+  With `expo-app-intents`, Siri can call a React Native app, but `perform()` runs in Swift and the library only
+  queues the call for JavaScript. With the app closed, a queued task wasn't saved until the app was next opened.
+  Opening the app works but takes about 2 seconds of cold JavaScript start. Doing the work in Swift saved the task
+  in 5–23 ms, but only after one fix: Swift has to use expo-sqlite's own copy of SQLite. With the system copy, the
+  app silently lost a task JavaScript had just saved. Android's AppFunctions have the same shape and, from the
+  expo-sqlite source, the same SQLite risk; I haven't run the Android half yet.
+</ShortAnswer>
+
+Assistants are learning to use apps without opening them. On iOS, the way in is App Intents: at WWDC26 Apple
+called it ["a key pillar of Apple Intelligence"](https://developer.apple.com/videos/play/wwdc2026/345/), and it's
+what Siri, Shortcuts and Spotlight call. On Android, Gemini calls apps through
+[AppFunctions](https://developer.android.com/ai/appfunctions), an Android 16 API whose Gemini integration Google's docs
+describe as a private preview (as of May 2026).
+
+React Native got its way in in September. Expo SDK 58 beta (September 15, React Native 0.88 RC) ships
+[`expo-app-intents`](https://docs.expo.dev/versions/v58.0.0/sdk/app-intents/), an alpha library that exposes App
+Intents, Siri, Shortcuts, Spotlight and Apple Intelligence from an Expo app.
+
+My [on-device AI post](/blog/on-device-ai-react-native-2026) put a model inside the app, and the
+[coding agents post](/blog/coding-agents-drive-the-simulator) let an agent drive the app during development. This
+one is the third angle: an assistant calling your app in production, with no UI. I built a small task app, exposed
+it to Siri, and measured the one thing the docs don't spell out: what happens when the call arrives and your
+JavaScript isn't running.
+
+Everything is in [a public repo](https://github.com/psingh2907/rn-agent-ready-lab): code, raw results and the bug.
+
+## Your app is now a tool
+
+If you've written an MCP tool, you already know the shape. An App Intent and an AppFunction are tools that live on
+the phone:
+
+| | MCP tool | App Intent (iOS) | AppFunction (Android) |
+| --- | --- | --- | --- |
+| Declared in | Server code | Swift, compiled into the app | Kotlin, annotated, compiled into the app |
+| The model reads | Tool description | `title`, `description`, parameter titles, phrases | KDoc on the function |
+| Typed inputs | JSON Schema | `@Parameter`, `AppEntity` | `@AppFunctionSerializable` classes |
+| Who can call it | Any MCP client | Siri, Shortcuts, Spotlight, Apple Intelligence | Callers holding `EXECUTE_APP_FUNCTIONS` |
+
+The difference that matters for React Native is in the first row. Both platforms read these declarations **at
+build time**, from native code in the app. You can't register an action from JavaScript at runtime. That's why
+`expo-app-intents` has you write intents in Swift, in an `app-intents/` folder that Expo compiles into the app
+target as an inline module.
+
+## The lab app
+
+A task list with three actions: add a task, complete a task, and list today's tasks. Expo SDK 58 beta, React
+Native 0.88.0-rc.3, `expo-app-intents` 0.5.3, tasks stored with `expo-sqlite`.
+
+The three actions cover the three kinds of work an assistant asks for. Adding creates something. Completing
+changes something the assistant has to find first ("complete *buy milk*"), so the task is an `AppEntity`. Listing
+returns data for the assistant to read out.
+
+The measured runs used an iPhone 18 Pro simulator on iOS 27.0 and a Release build. (The SQLite bug below showed up
+earlier, in a Debug build.) I had no physical iPhone, so there is no "Hey Siri" in this post: every intent was run
+from its App Shortcut tile in the Shortcuts app, which calls the same `perform()` that Siri does.
+
+## The call arrives while your JavaScript isn't running
+
+This is the part that decides your design. When an intent runs (from Siri, Shortcuts or Spotlight), iOS starts your
+app's process if it isn't running and calls the intent's `perform()`, in Swift. Unless the intent opens the app, this
+happens in the background: in my runs, `perform()` saw the app as `background` every time, and `active` or
+`inactive` only for the design that opens the app. `expo-app-intents` gives you one way to reach JavaScript from
+there:
+
+```swift
+await AppIntentDispatcher.shared.dispatch(name: "addTask", params: ["title": .string(taskTitle)])
+```
+
+`dispatch` writes the call to a queue and, if JavaScript is listening, sends it an event. It doesn't start
+JavaScript and doesn't wait for it, so there's no way to get an answer back into `perform()`. The library's own
+agent skill says it plainly: don't tell the user it worked just because a call was queued.
+
+That leaves three designs. I built all three as separate intents, with the same "add a task" job:
+
+| Design | What `perform()` does | The dialog it returns |
+| --- | --- | --- |
+| **Swift** | Writes the task into the same SQLite file JavaScript uses | "Added *buy milk*." |
+| **Queued** | `dispatch`, and nothing else | "*Buy milk* will be added the next time you open the app." |
+| **Open App** | `dispatch` with `openAppWhenRun = true` | "Opening the app to add *buy milk*." |
+
+Delivery from the queue is at least once, so the JavaScript handler has to be safe to run twice. I used the
+invocation ID as the task ID, so a replay inserts nothing. It's the same rule as the outbox in my
+[offline-first post](/blog/offline-first-react-native-data-layer#rule-3-make-every-write-safe-to-send-twice):
+
+```tsx
+AppIntents.useAppIntents(async (pendingIntents) => {
+  for (const invocation of pendingIntents) {
+    if (invocation.name !== 'addTask') continue; // unknown actions stay queued
+    // INSERT OR IGNORE, keyed by invocation.id, in one transaction with the run's metrics
+    await addTaskFromIntent({ invocationId: invocation.id, title: String(invocation.params.title) });
+    // Remove only after the work succeeded, so a failure stays queued for the next launch.
+    await AppIntents.removePendingInvocationAsync(invocation.id);
+  }
+});
+```
+
+## Results: what happened with the app closed
+
+I closed the app before each run, then tapped the shortcut. Three runs per design. "Saved" is when the task row
+was committed; both clocks are the Mac's, which the simulator shares.
+
+| Design | Tap → `perform()` | `perform()` → task saved | Saved by |
+| --- | --- | --- | --- |
+| Swift | 5.9–15.3 s | **5–23 ms** | Swift |
+| Queued | 4.8–6.8 s | **not until I opened the app** (33–94 s in my runs) | JavaScript |
+| Open App | 6.0–7.0 s | **1.6–2.3 s** | JavaScript, cold start |
+
+Three things stand out.
+
+**The queue doesn't run your JavaScript.** iOS woke the app's process to call `perform()`, but JavaScript never
+handled the queued call. The three queued tasks sat there until I opened the app, and then all three landed within
+7 ms of each other. The 33–94 seconds in the table only measure how long I waited; on a real phone it could be hours.
+
+**Opening the app costs about 2 seconds, and it isn't "without opening the app".** The app comes to the front, React
+Native starts, and the handler drains the queue. It worked in all three runs, but the user is pulled out of whatever
+they were doing.
+
+**The slow part is launching the app, not the work.** Tap → `perform()` took 5–15 seconds whatever the design. With
+the app already running it was 2.3–2.6 seconds, so most of that is iOS starting a closed app. That's simulator time
+on a laptop, so don't read it as phone latency. The work itself took 5–23 ms in Swift.
+
+With the app suspended in the background instead of closed, the picture changes: a queued call was saved by
+JavaScript in 4 ms, because the runtime was still in memory. So the queue isn't wrong. It's only unreliable when
+the app has been closed, which is exactly when an assistant is most useful.
+
+## The bug: two copies of SQLite in one app
+
+The Swift design has a trap, and I walked straight into it.
+
+My first `TaskStore.swift` opened the database with `import SQLite3`, the system library, and it worked. Then I
+added "Milk" in the app, ran "Today's Tasks" from Shortcuts, and the result card said:
+
+> You have nothing left to do today.
+
+Swift and JavaScript were reading the same file, `Documents/SQLite/tasks.db`. On disk the file had no rows and no
+WAL file. But the app process still had `tasks.db-wal` open: the file had been deleted while expo-sqlite was using
+it. After restarting the app, "Milk" was gone for good.
+
+<Gotcha title="expo-sqlite ships its own SQLite">
+  expo-sqlite compiles SQLite 3.53.3 into your app and renames every function to `exsqlite3_*`, so it can't clash
+  with the system's SQLite (3.54.0 in the iOS 27 SDK). That also guarantees there are two separate copies in one
+  process. SQLite's locks are POSIX locks, which belong to the whole process: one copy can't see the other's locks,
+  and a `close()` in one copy cancels the locks the other holds. So the system copy acted as if it were the only
+  connection, and when it closed, the WAL file holding JavaScript's writes was deleted. SQLite's
+  [How To Corrupt An SQLite Database File](https://www.sqlite.org/howtocorrupt.html) lists exactly this:
+  "multiple copies of SQLite linked into the same application".
+</Gotcha>
+
+The fix is to use expo-sqlite's copy from Swift. The ExpoSQLite pod exposes its header as a Swift module, so it's
+an import and a prefix:
+
+```swift
+// Don't `import SQLite3`: that's a second copy, with its own locks.
+internal import ExpoSQLite
+
+exsqlite3_open_v2(databaseURL.path, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nil)
+exsqlite3_busy_timeout(db, 3000) // JavaScript may hold the write lock
+```
+
+After the change, the app binary no longer links `libsqlite3.dylib` at all (`otool -L` shows nothing), the WAL file
+survives Swift closing its connection, and the same shortcut answered "You have one task left: Milk." The evidence,
+with the file listings, is in the repo.
+
+The fix has a cost a reviewer should see. `exsqlite3_*` isn't a public API; it's how expo-sqlite builds SQLite
+today, and a future version could change it. Pin expo-sqlite, and add a CI check that fails if the app links
+`libsqlite3.dylib` again. Swift now also writes to the `tasks` table, so the schema is known in two languages. In
+the lab both sides create the table if it's missing; in a real app I'd let JavaScript own migrations and have Swift
+check `PRAGMA user_version` before it writes.
+
+The same trap applies to any native code that touches a database your JavaScript owns: an App Intent, a widget, a
+notification extension, a background task. Before you write to it from Swift or Kotlin, check which SQLite your
+JavaScript library uses.
+
+## Finding a task: entities that read the database
+
+"Complete *buy milk*" needs the system to find the task first. That's an `AppEntity` with a query:
+
+```swift
+struct TaskQuery: EntityStringQuery {
+  func entities(for identifiers: [String]) async throws -> [TaskEntity] {
+    try TaskStore.tasks(ids: identifiers).map(TaskEntity.init)
+  }
+  func suggestedEntities() async throws -> [TaskEntity] {
+    try TaskStore.openTasks().map(TaskEntity.init)
+  }
+  // entities(matching:) filters suggestedEntities() by title
+}
+```
+
+`expo-app-intents` also has an entity catalog: JavaScript publishes records with `setEntityCatalogAsync`, and
+Swift reads them. I didn't use it here, because the catalog can only be written from JavaScript. A task that the
+Swift design just added wouldn't be in it until the app next opened. Reading the database directly keeps one source
+of truth, now that Swift and JavaScript share it safely.
+
+The payoff showed up in the Shortcuts app. After the app called `refreshShortcutsAsync()`, a parameterized "Milk"
+shortcut appeared, and tapping it answered "Marked Milk as done." without opening the app.
+
+## Write descriptions for the model, not for a person
+
+The strings you put on an intent are the prompt. Siri and Apple Intelligence read the title, the description and
+the parameter titles to decide whether your action fits what the user asked; on Android, Gemini reads the KDoc. This
+lab's descriptions say what the action does and what it doesn't:
+
+```swift
+static let description = IntentDescription("Adds a task to today's list without opening the app.")
+static let description = IntentDescription("Adds a task to today's list the next time the app runs.")
+```
+
+The same rules as for an MCP tool apply. Say when to use the action, name the object it works on, and be honest
+about side effects such as opening the app. I didn't measure how wording changes what the assistant picks; on the
+simulator there's no assistant to ask.
+
+## Phrases, and their limits
+
+App Shortcut phrases are compiled at build time, like the intents. A few rules from the library and Apple:
+
+- Every phrase must include `\(.applicationName)`.
+- A phrase can include at most one parameter, and only an entity or enum. "Add *buy milk* in Lab Tasks" can't put
+  free text in the phrase. The expo-app-intents docs say a required parameter left out of the phrase is collected
+  with a follow-up question; I couldn't check that, because the simulator's Shortcuts app didn't show the prompt.
+- An app can have at most 10 App Shortcuts. My lab used 6.
+- An OTA update can't add or change any of this. New intents or phrases mean a new binary.
+
+## What I could and couldn't test on the simulator
+
+- **App Shortcuts run on the iOS 27.0 release simulator.** They didn't on 26.5 through 27.0 beta 2
+  ([FB23504349](https://developer.apple.com/forums/thread/836585)). If you're stuck on an older Xcode, this is
+  why.
+- **The simulator's Shortcuts app didn't show the "Title?" prompt** for a shortcut with a text parameter, so the
+  measured runs used three lab-only shortcuts that call the same code with a fixed title.
+- **Result cards sometimes appeared late**, after the next app came to the front. Don't treat the card as the end
+  of the run; my timings come from the database and from logs written inside `perform()`.
+- **Not exercised:** a duplicate delivery. The handler is written to be safe to replay (the invocation ID is the
+  task ID), but I never forced the queue to deliver the same call twice.
+- **Not tested:** real Siri voice, Apple Intelligence on screen (`AppEntityView`), and Spotlight indexing. All need
+  a device.
+
+## Android: AppFunctions, from the docs
+
+<Note title="Not run yet">
+  Everything in this section comes from Android's documentation and from reading the expo-sqlite source. I haven't
+  built or run it. The Android half of the lab (one AppFunction in the same Expo app, run on an Android 16 emulator
+  through `adb`) is next, and I'll update this post with what it finds.
+</Note>
+
+AppFunctions is the Android version of the same idea. An app declares typed functions, Android indexes them from a
+generated XML schema, and an authorised caller (Gemini, or another app holding `EXECUTE_APP_FUNCTIONS`) runs them
+without opening the app.
+Google describes it as letting apps "behave like on device MCP servers". It needs Android 16 (API 36) and the
+`androidx.appfunctions` Jetpack library, which is at 1.0.0-alpha13 (October 7, 2026).
+
+I couldn't find a React Native or Expo wrapper for it, so for now a React Native app needs its own small native
+module. The function itself is plain Kotlin, read by a KSP compiler plugin at build time, so like iOS you can't
+declare it from JavaScript. Adapted from Google's task example (not compiled; `Task` is your own
+`@AppFunctionSerializable` result type):
+
+```kotlin
+@RequiresApi(36)
+@AppFunctionServiceEntryPoint(
+  serviceName = "TaskAppFunctionService",
+  appFunctionXmlFileName = "task_app_function_service",
+)
+abstract class BaseTaskAppFunctionService : AppFunctionService() {
+  /**
+   * Adds a task to today's list.
+   *
+   * @param params The title of the task to add.
+   */
+  @AppFunction(isDescribedByKDoc = true)
+  suspend fun addTask(params: AddTaskParams): Task = withContext(Dispatchers.IO) {
+    // Runs in Kotlin. Your JavaScript may not be running.
+    TODO("save the task")
+  }
+}
+
+@AppFunctionSerializable(isDescribedByKDoc = true)
+data class AddTaskParams(val title: String)
+```
+
+The KDoc is the description the model reads, the same role as an App Intent's `description`.
+
+**The same three designs apply.** The function runs in a Kotlin service, so the question from the iOS half comes
+straight back: do the work natively, queue it for JavaScript, or bring the app forward. Unlike iOS, there's no
+library queue yet; you'd write one.
+
+**The same SQLite trap is there in principle.** expo-sqlite's Android build compiles its own `sqlite3.c` into the
+library it ships (`android/CMakeLists.txt` in the package). Android's `android.database.sqlite` uses the platform's
+SQLite. Writing JavaScript's database from Kotlin with the platform API would put two copies of SQLite in one
+process, the setup that lost data on iOS. I haven't reproduced it on Android; the lab will check.
+
+**You can test without Gemini.** The docs point to `adb shell cmd app_function` for checking registration, reading
+the descriptions the model will see, and running a function on a device or emulator, starting with:
+
+```sh
+adb shell cmd app_function list-app-functions
+```
+
+**Gemini itself is gated.** Google's docs say that as of May 2026 the Gemini integration is "in a private preview
+with trusted testers", with an early access form for select apps. You can ship the functions now; most apps can't yet
+watch Gemini call them.
+
+## Who can call your app, and what they can do
+
+- Anything an intent does can be triggered without your UI ever appearing. For destructive actions (delete,
+  pay), ask for confirmation in `perform()` before doing the work.
+- Validate every parameter in Swift and again in JavaScript. A saved shortcut can replay old parameter values, and
+  an ID can point to a record that was deleted since.
+- Anything you put in the entity catalog or the Spotlight index is visible to the system. Sync titles, not
+  private notes.
+
+## What to ship now
+
+- **If Siri should finish the job, do it natively.** The queue is fine for "sync this later", but with the app
+  closed it won't run your JavaScript.
+- **Share one SQLite copy.** If JavaScript uses expo-sqlite, Swift must use `exsqlite3_*` through
+  `import ExpoSQLite`, never `import SQLite3`.
+- **Make every handler safe to replay**, and remove a pending call only after its work succeeded.
+- **`expo-app-intents` is alpha**, and its docs warn of frequent breaking changes. Pin the version.
+
+<Takeaways
+  items={[
+    "App Intents run in Swift. expo-app-intents queues the call for JavaScript, but doesn't start it.",
+    "With the app closed: Swift saved the task in 5–23 ms, the queue waited until the app was opened, and opening the app took about 2 s.",
+    "expo-sqlite bundles its own SQLite. Writing the same file with the system SQLite deleted the WAL and lost data.",
+    "Use import ExpoSQLite and exsqlite3_* from Swift, so both sides share one copy.",
+    "App Shortcuts run on the iOS 27.0 simulator, but test real Siri on a device.",
+    "Android's AppFunctions raise the same questions: Kotlin runs first, and expo-sqlite ships its own SQLite there too.",
+  ]}
+/>
